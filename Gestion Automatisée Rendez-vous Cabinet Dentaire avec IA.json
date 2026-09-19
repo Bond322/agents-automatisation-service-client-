@@ -1,0 +1,1448 @@
+{
+  "name": "Gestion Automatisée Rendez-vous Cabinet Dentaire avec IA",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "maxResults": 15,
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -1440,
+        464
+      ],
+      "id": "d7624aca-0e93-451d-b5a9-dec9816be47d",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.snippet }}",
+        "options": {
+          "systemMessage": "=Nous sommes le {{ $now.setZone('Africa/Nairobi').setLocale('fr').toFormat('cccc dd LLLL yyyy') }} (heure de Nairobi).\n\nTu es un assistant administratif IA travaillant pour un cabinet dentaire haut de gamme situe a Marseille.\n\nTon role est d'analyser les emails entrants des patients, y compris dans le cadre d'un echange en plusieurs messages (utilise l'historique de conversation fourni).\n\nTu dois determiner :\n\n1. La categorie du message :\n- QUESTION_GENERALE\n- DEMANDE_RDV\n- URGENCE_HUMAINE\n\n2. Le nom du patient si identifiable, dans ce message ou dans l'historique.\n\n3. Le motif principal du rendez-vous.\n\n4. Le niveau d'urgence :\n- FAIBLE\n- MOYEN\n- ELEVE\n\n5. Une courte synthese du message.\n\n6. Si une date et/ou heure de rendez-vous a ete mentionnee, dans ce message OU dans un message precedent du meme fil, calcule la date exacte par rapport a la date d'aujourd'hui ci-dessus et remplis date_souhaitee (AAAA-MM-JJ) et heure_souhaitee (HH:MM, 24h). Si seul un moment approximatif est donne (matin/apres-midi), choisis 09:00 ou 14:00. IMPORTANT : si une date/heure a deja ete confirmee plus tot dans la conversation, garde-la meme si le nouveau message ne la repete pas. Si aucune date/heure n'a jamais ete mentionnee, laisse ces champs vides.\n\n7. Le numero de telephone du patient s'il est mentionne (dans ce message ou les precedents), sinon laisse vide.\n\n8. Le type de consultation : choisis OBLIGATOIREMENT une valeur exacte parmi cette liste : Consultation, Contrôle, Détartrage, Implant, Prothèse, Urgence, Consultation Générale, Consultation Spécialiste, Suivi Post-Opératoire, Consultation Pédiatrique, Consultation Psychologique. Si le motif ne correspond a aucune categorie precise, utilise 'Consultation Générale'.\n\nConsidere comme QUESTION_GENERALE :\n\n- horaires\n- tarifs\n- adresse\n- acces\n- informations generales\n- renseignements sur les soins\n\nConsidere comme DEMANDE_RDV :\n\n- prise de rendez-vous\n- demande de consultation\n- bilan\n- controle\n- implant\n- facettes\n- blanchiment\n- esthetique dentaire\n\nConsidere comme URGENCE_HUMAINE :\n\n- douleur importante\n- infection\n- saignement\n- dent cassee\n- gonflement\n- urgence medicale\n- situation ambigue necessitant un humain\n\nReponds UNIQUEMENT au format JSON.\n\nFormat attendu :\n\n{\n  \"categorie\": \"\",\n  \"nom_patient\": \"\",\n  \"motif\": \"\",\n  \"urgence\": \"\",\n  \"resume\": \"\",\n  \"date_souhaitee\": \"\",\n  \"heure_souhaitee\": \"\",\n  \"telephone\": \"\",\n  \"type_consultation\": \"\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1168,
+        464
+      ],
+      "id": "e17c5d49-da59-42b6-a9cb-a2d4b7f70260",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.snippet }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -1088,
+        800
+      ],
+      "id": "af172b1d-7150-47f4-a987-0975f8170274",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1248,
+        848
+      ],
+      "id": "c4e4d81e-17c7-42da-8bbc-7c23f3e730b9",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "lvbafsJz5Jopbs8a",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "614c6880-d766-4f2d-a4be-23942aa4dce9",
+                    "leftValue": "={{ $json.categorie }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "QUESTION_GENERALE"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                }
+              }
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "d06bf2e8-0ca4-49fe-8e62-ac110b239caa",
+                    "leftValue": "={{ $json.categorie }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "DEMANDE_RDV"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                }
+              }
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "a4b59f48-3fc2-4637-bc14-3f4c14043cf8",
+                    "leftValue": "={{ $json.categorie }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "URGENCE_HUMAINE"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                }
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -496,
+        448
+      ],
+      "id": "b8db74d6-7548-47c8-8804-673fbecf7c5c",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Tu es l'assistante administrative virtuelle du Cabinet Maupassant.\n\nTa mission est de repondre aux questions generales des patients de maniere professionnelle, chaleureuse et concise.\n\nRegles :\n\n- Reponds toujours en francais.\n- Sois poli et rassurant.\n- Ne donne jamais de conseils medicaux.\n- Ne pose pas de diagnostic.\n- Si la question concerne une urgence medicale, invite le patient a contacter directement le cabinet.\n- Si l'information demandee n'est pas connue, indique qu'un membre de l'equipe reviendra vers lui, sans inventer de reponse.\n- Si tu connais le prenom du patient ({{ $('Parser Classification IA').item.json.nom_patient }}), utilise-le. S'il est inconnu, ne mets jamais de terme generique comme 'Patient' a la place, formule simplement sans nom.\n- N'utilise pas de longue formule d'introduction a chaque message comme s'il s'agissait d'un premier contact ; va a l'essentiel, comme dans un echange professionnel deja engage.\n\nInformations du cabinet :\n\n- Cabinet Dentaire Maupassant, ouvert depuis 2013, situe au 224 Avenue du Prado, 13008 Marseille (8eme arrondissement), a proximite des stations de metro Perier et Rond-Point du Prado, accessible en metro, bus ou voiture.\n- Deux praticiens : Dr Sebban et Dr Vartanyan, chirurgiens-dentistes et implantologues.\n- Telephone : 04 69 00 14 78. Email : contact@cabinetmaupassant.com.\n- Horaires : Lundi 9h-13h et 14h-19h ; Mardi et Mercredi 9h-13h et 14h-18h ; Jeudi et Vendredi 9h-13h et 14h-17h ; ferme le samedi et le dimanche.\n- Soins proposes : esthetique dentaire generale avec simulation numerique du sourire, facettes dentaires (y compris facettes sans meulage des dents), couronnes ceramiques et protheses dentaires, blanchiment dentaire professionnel, orthodontie (bagues traditionnelles et gouttieres Invisalign, adultes et enfants), implantologie (implants dentaires, bilan pre-implantaire, greffes osseuses), parodontologie (maladies parodontales, greffes gingivales, chirurgie plastique gingivale), soins dentaires generaux et conservateurs, endodontie, soins dentaires enfants, urgences dentaires.\n- Tarifs : pas de grille tarifaire fixe, chaque traitement fait l'objet d'un devis personnalise et transparent ; des solutions de financement sont disponibles. Si un patient demande un prix precis, oriente-le vers une consultation pour obtenir un devis sur mesure, sans donner de chiffre approximatif.\n- Les rendez-vous peuvent etre demandes par email.\n\nQuestion du patient :\n{{ $('Gmail Trigger').item.json.snippet }}\n\nGenere uniquement le texte de l'email de reponse.\nNe mets pas d'objet.\nNe signe pas avec ton nom."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -160,
+        16
+      ],
+      "id": "84627963-c7c6-467c-9236-733768318964",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "I9Km5WVFjaiD6l7m",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $json.output[0].content[0].text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        16
+      ],
+      "id": "2572d22d-8832-49df-87af-983bcc176274",
+      "name": "Send a message",
+      "webhookId": "1a656ede-0423-4188-b367-bce7f010a507",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "airtableOAuth2Api",
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appehaTcOVB0NSgqA",
+          "mode": "list",
+          "cachedResultName": "MedFlow AI",
+          "cachedResultUrl": "https://airtable.com/appehaTcOVB0NSgqA"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbloRFVhhO6OxiWoj",
+          "mode": "list",
+          "cachedResultName": "Rendez-vous",
+          "cachedResultUrl": "https://airtable.com/appehaTcOVB0NSgqA/tbloRFVhhO6OxiWoj"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Rappel Envoyé": false,
+            "Notes": "=Patient : {{ $('Parser Classification IA').item.json.nom_patient }}\nEmail : {{ $('Parser Classification IA').item.json.patient_email }}\nTelephone : {{ $('Parser Classification IA').item.json.telephone }}\nMotif : {{ $('Parser Classification IA').item.json.motif }}\nResume : {{ $('Parser Classification IA').item.json.resume }}",
+            "Statut Rendez-vous": "En attente",
+            "Type de Consultation": "={{ $('Parser Classification IA').item.json.type_consultation }}",
+            "Thread ID": "={{ $('Gmail Trigger').item.json.threadId }}",
+            "Email Patient": "={{ $('Parser Classification IA').item.json.patient_email }}"
+          },
+          "matchingColumns": [
+            "Thread ID"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Rendez-vous ID",
+              "id": "Rendez-vous ID",
+              "readOnly": true,
+              "removed": true,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Patient",
+              "id": "Patient",
+              "readOnly": false,
+              "removed": true,
+              "required": false,
+              "type": "array"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Date du Rendez-vous",
+              "id": "Date du Rendez-vous",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "dateTime"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Heure du Rendez-vous",
+              "id": "Heure du Rendez-vous",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "dateTime"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Type de Consultation",
+              "id": "Type de Consultation",
+              "options": [
+                {
+                  "name": "Consultation",
+                  "value": "Consultation"
+                },
+                {
+                  "name": "Contrôle",
+                  "value": "Contrôle"
+                },
+                {
+                  "name": "Détartrage",
+                  "value": "Détartrage"
+                },
+                {
+                  "name": "Implant",
+                  "value": "Implant"
+                },
+                {
+                  "name": "Prothèse",
+                  "value": "Prothèse"
+                },
+                {
+                  "name": "Urgence",
+                  "value": "Urgence"
+                },
+                {
+                  "name": "Consultation Générale",
+                  "value": "Consultation Générale"
+                },
+                {
+                  "name": "Consultation Spécialiste",
+                  "value": "Consultation Spécialiste"
+                },
+                {
+                  "name": "Suivi Post-Opératoire",
+                  "value": "Suivi Post-Opératoire"
+                },
+                {
+                  "name": "Consultation Pédiatrique",
+                  "value": "Consultation Pédiatrique"
+                },
+                {
+                  "name": "Consultation Psychologique",
+                  "value": "Consultation Psychologique"
+                }
+              ],
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "options"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Statut Rendez-vous",
+              "id": "Statut Rendez-vous",
+              "options": [
+                {
+                  "name": "En attente",
+                  "value": "En attente"
+                },
+                {
+                  "name": "Confirmé",
+                  "value": "Confirmé"
+                },
+                {
+                  "name": "Annulé",
+                  "value": "Annulé"
+                },
+                {
+                  "name": "Terminé",
+                  "value": "Terminé"
+                }
+              ],
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "options"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Rappel Envoyé",
+              "id": "Rappel Envoyé",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Notes",
+              "id": "Notes",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Proposition Suivante (IA)",
+              "id": "Proposition Suivante (IA)",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Résumé RDV (IA)",
+              "id": "Résumé RDV (IA)",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Thread ID",
+              "id": "Thread ID",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Email Patient",
+              "id": "Email Patient",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        576
+      ],
+      "id": "d71171b2-9aa7-4095-bd76-7bf5e33c478f",
+      "name": "Create a record",
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "KyJjp9ZIKvT21hI0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Tu es l'assistante administrative virtuelle du Cabinet Dentaire Maupassant.\n\nTa mission est de rediger un email proposant des rendez-vous aux patients, et de repondre egalement a toute question generale qu'ils auraient posee dans le meme message (horaires, adresse, soins, tarifs).\n\nInformations du cabinet :\n- Adresse : 224 Avenue du Prado, 13008 Marseille\n- Telephone : 04 69 00 14 78\n- Horaires : Lundi 9h-13h et 14h-19h ; Mardi et Mercredi 9h-13h et 14h-18h ; Jeudi et Vendredi 9h-13h et 14h-17h ; ferme samedi et dimanche\n\nRegles :\n\n- Reponds uniquement en francais.\n- Ton professionnel, chaleureux, rassurant.\n- Ne donne jamais de conseil medical, ne pose jamais de diagnostic.\n- Si tu connais le prenom du patient ({{ $('Parser Classification IA').item.json.nom_patient }}), utilise-le. S'il est inconnu, ne mets jamais de terme generique comme 'Patient' a la place, formule simplement sans nom.\n- N'utilise pas de longue formule d'introduction a chaque message comme s'il s'agissait d'un premier contact ; va a l'essentiel, comme dans un echange professionnel deja engage.\n- Si le message du patient contient aussi une question generale (horaires, adresse, soins...), reponds-y avec les informations du cabinet ci-dessus, en plus de la proposition de rendez-vous.\n- Presente les disponibilites ci-dessous, organisees par jour, sous forme de liste claire, sans en inventer d'autres.\n- Invite le patient a repondre en indiquant le jour ET l'heure choisis.\n- Termine par une formule de politesse professionnelle.\n\nMessage du patient :\n{{ $('Gmail Trigger').item.json.snippet }}\n\nDisponibilites :\n{{ $json.creneauxDisponibles }}\n\nGenere uniquement le texte de l'email, sans objet, sans JSON."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        992,
+        576
+      ],
+      "id": "1d043a65-db1b-47fc-83e6-ba6f033b8426",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "I9Km5WVFjaiD6l7m",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $json.output[0].content[0].text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1376,
+        576
+      ],
+      "id": "9e40670f-39f4-4c7f-9839-fb2754ce5990",
+      "name": "Send a message1",
+      "webhookId": "4faf543a-6089-4c25-af63-753bb58d6ccc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "d02f1abacf55c085a39dcbdf9db88a06dfffbcdb19cdff77847f2cd1fbdee5e0@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "MedFlow AI"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        576
+      ],
+      "id": "e7c89801-e589-4f10-a434-e74ed3cb62fa",
+      "name": "Get many events",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "N6hQpsm5tkww2mlV",
+          "name": "Google Calendar OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Gmail Trigger').item.json.To }}",
+        "subject": "=Urgence patient a traiter - {{ $json.nom_patient || 'Patient' }}",
+        "emailType": "text",
+        "message": "=Une demande necessitant une attention humaine immediate a ete detectee.\n\nPatient : {{ $json.nom_patient }}\nNiveau d'urgence : {{ $json.urgence }}\nMotif : {{ $json.motif }}\nResume : {{ $json.resume }}\n\nEmail original de : {{ $('Gmail Trigger').item.json.From }}\nSujet : {{ $('Gmail Trigger').item.json.Subject }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        880
+      ],
+      "id": "632881a6-748c-41e4-b038-28ef7c418f50",
+      "name": "Send a message2",
+      "webhookId": "64fe0b95-ae22-4eaa-95f3-b077d3db89a0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst raw = item.output || '';\nconst cleaned = raw.replace(/```json|```/g, '').trim();\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    categorie: 'URGENCE_HUMAINE',\n    nom_patient: '',\n    motif: '',\n    urgence: 'ELEVE',\n    resume: 'Erreur de classification automatique par IA, a verifier manuellement.',\n    date_souhaitee: '',\n    heure_souhaitee: '',\n    telephone: '',\n    type_consultation: ''\n  };\n}\n\nconst fromHeader = ($('Gmail Trigger').first().json.From) || '';\nconst match = fromHeader.match(/^\"?([^\"<]+?)\"?\\s*<([^>]+)>/);\nconst headerName = match ? match[1].trim() : '';\nconst headerEmail = match ? match[2].trim() : fromHeader.trim();\n\nconst nomFinal = headerName || parsed.nom_patient || '';\n\nreturn [{ json: { ...item, ...parsed, nom_patient: nomFinal, patient_email: headerEmail } }];"
+      },
+      "id": "872c9c18-cef0-4b42-a415-306e9a1e8a88",
+      "name": "Parser Classification IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const events = $input.all().map(i => i.json).filter(e => e && (e.start || e.end));\n\nconst horaires = {\n  1: [[9,0,13,0],[14,0,19,0]],\n  2: [[9,0,13,0],[14,0,18,0]],\n  3: [[9,0,13,0],[14,0,18,0]],\n  4: [[9,0,13,0],[14,0,17,0]],\n  5: [[9,0,13,0],[14,0,17,0]]\n};\n\nconst slotMinutes = 30;\nconst NAIROBI_OFFSET_HOURS = 3;\nconst MAX_SLOTS_PER_DAY = 3;\nconst MIN_DAYS_WITH_SLOTS = 3;\nconst MAX_DAYS_TO_SCAN = 14;\n\nconst busy = events.map(e => {\n  const s = e.start && (e.start.dateTime || e.start.date);\n  const en = e.end && (e.end.dateTime || e.end.date);\n  return (s && en) ? { start: new Date(s), end: new Date(en) } : null;\n}).filter(Boolean);\n\nfunction overlaps(s1, e1, s2, e2) {\n  return s1 < e2 && s2 < e1;\n}\n\nconst noms = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];\nconst moisNoms = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];\nconst now = new Date();\nconst nairobiNow = new Date(now.getTime() + NAIROBI_OFFSET_HOURS*3600000);\n\nconst jours = [];\nlet daysWithSlots = 0;\n\nfor (let d = 0; d < MAX_DAYS_TO_SCAN && daysWithSlots < MIN_DAYS_WITH_SLOTS; d++) {\n  const dayRef = new Date(nairobiNow.getTime() + d*86400000);\n  const y = dayRef.getUTCFullYear();\n  const mo = dayRef.getUTCMonth();\n  const dt = dayRef.getUTCDate();\n  const dow = dayRef.getUTCDay();\n  const plages = horaires[dow];\n  if (!plages) continue;\n\n  const slotsDuJour = [];\n  for (const [h1,m1,h2,m2] of plages) {\n    let curH = h1, curM = m1;\n    while ((curH < h2 || (curH === h2 && curM < m2)) && slotsDuJour.length < MAX_SLOTS_PER_DAY) {\n      let endH = curH, endM = curM + slotMinutes;\n      if (endM >= 60) { endH += Math.floor(endM/60); endM = endM % 60; }\n      if (endH > h2 || (endH === h2 && endM > m2)) break;\n\n      const slotStartUTC = new Date(Date.UTC(y, mo, dt, curH - NAIROBI_OFFSET_HOURS, curM));\n      const slotEndUTC = new Date(Date.UTC(y, mo, dt, endH - NAIROBI_OFFSET_HOURS, endM));\n\n      if (slotStartUTC > now) {\n        const isBusy = busy.some(b => overlaps(slotStartUTC, slotEndUTC, b.start, b.end));\n        if (!isBusy) {\n          const heureStr = String(curH).padStart(2,'0') + 'h' + String(curM).padStart(2,'0');\n          slotsDuJour.push(heureStr);\n        }\n      }\n      curH = endH; curM = endM;\n    }\n  }\n\n  if (slotsDuJour.length > 0) {\n    const jourNom = noms[dow];\n    jours.push(jourNom + ' ' + dt + ' ' + moisNoms[mo] + ' : ' + slotsDuJour.join(', '));\n    daysWithSlots++;\n  }\n}\n\nreturn [{ json: { creneauxDisponibles: jours.length ? jours.join('\\n') : 'Aucun creneau trouve dans les prochains jours, merci de contacter directement le cabinet.' } }];"
+      },
+      "id": "41ec9994-e7e0-48a5-b5ea-10eec1d0d899",
+      "name": "Calculer Creneaux Disponibles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "=Bonjour,\n\nNous avons bien recu votre message et avons identifie qu'il necessite une attention immediate de notre equipe. Un membre du cabinet va vous recontacter tres rapidement.\n\nEn cas d'urgence dentaire severe (douleur intense, saignement important, traumatisme), merci de contacter directement le cabinet par telephone au 04 69 00 14 78.\n\nCordialement,\nCabinet Dentaire Maupassant",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8528061e-8d1f-4b93-a23e-3f267d5fe440",
+      "name": "Accuser Reception - Urgence",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        128,
+        880
+      ],
+      "webhookId": "0dbac3a4-2bb3-4c4c-9a70-3e8bf19a4f51",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1a1b1c1-0000-0000-0000-000000000001",
+              "leftValue": "={{ $json.date_souhaitee }}",
+              "operator": {
+                "operation": "notEquals",
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9866ea0b-ca24-4a34-8115-6b619aab04d0",
+      "name": "Date Precise Demandee ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "cachedResultName": "MedFlow AI",
+          "mode": "list",
+          "value": "d02f1abacf55c085a39dcbdf9db88a06dfffbcdb19cdff77847f2cd1fbdee5e0@group.calendar.google.com"
+        },
+        "timeMin": "={{ DateTime.fromFormat($json.date_souhaitee + ' ' + $json.heure_souhaitee, 'yyyy-MM-dd HH:mm', {zone: 'Africa/Nairobi'}).toISO() }}",
+        "timeMax": "={{ DateTime.fromFormat($json.date_souhaitee + ' ' + $json.heure_souhaitee, 'yyyy-MM-dd HH:mm', {zone: 'Africa/Nairobi'}).plus({minutes: 30}).toISO() }}",
+        "options": {
+          "outputFormat": "availability"
+        }
+      },
+      "id": "f50d2c60-9b81-4e5b-8ee8-2e77d9720f84",
+      "name": "Verifier Disponibilite Demandee",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        672,
+        272
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "N6hQpsm5tkww2mlV",
+          "name": "Google Calendar OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c2a2b2c2-0000-0000-0000-000000000002",
+              "leftValue": "={{ $json.available }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "768d2939-8403-4d1c-a9e2-9eebde19de98",
+      "name": "Creneau Demande Disponible ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        944,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "cachedResultName": "MedFlow AI",
+          "mode": "list",
+          "value": "d02f1abacf55c085a39dcbdf9db88a06dfffbcdb19cdff77847f2cd1fbdee5e0@group.calendar.google.com"
+        },
+        "start": "={{ DateTime.fromFormat($('Parser Classification IA').item.json.date_souhaitee + ' ' + $('Parser Classification IA').item.json.heure_souhaitee, 'yyyy-MM-dd HH:mm', {zone: 'Africa/Nairobi'}).toISO() }}",
+        "end": "={{ DateTime.fromFormat($('Parser Classification IA').item.json.date_souhaitee + ' ' + $('Parser Classification IA').item.json.heure_souhaitee, 'yyyy-MM-dd HH:mm', {zone: 'Africa/Nairobi'}).plus({minutes: 30}).toISO() }}",
+        "additionalFields": {
+          "description": "=Motif: {{ $('Parser Classification IA').item.json.motif }}\nResume: {{ $('Parser Classification IA').item.json.resume }}\nTelephone: {{ $('Parser Classification IA').item.json.telephone }}\nEmail: {{ $('Parser Classification IA').item.json.patient_email }}",
+          "sendUpdates": "none",
+          "summary": "=RDV - {{ $('Parser Classification IA').item.json.nom_patient }} - {{ $('Parser Classification IA').item.json.motif }}"
+        }
+      },
+      "id": "f00f1e3b-bb06-407a-ac0d-288fcf82a75d",
+      "name": "Creer RDV Direct",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1520,
+        0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "N6hQpsm5tkww2mlV",
+          "name": "Google Calendar OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "airtableOAuth2Api",
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "cachedResultName": "MedFlow AI",
+          "cachedResultUrl": "https://airtable.com/appehaTcOVB0NSgqA",
+          "mode": "list",
+          "value": "appehaTcOVB0NSgqA"
+        },
+        "table": {
+          "__rl": true,
+          "cachedResultName": "Rendez-vous",
+          "cachedResultUrl": "https://airtable.com/appehaTcOVB0NSgqA/tbloRFVhhO6OxiWoj",
+          "mode": "list",
+          "value": "tbloRFVhhO6OxiWoj"
+        },
+        "columns": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "Thread ID"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Rendez-vous ID",
+              "id": "Rendez-vous ID",
+              "readOnly": true,
+              "removed": true,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Patient",
+              "id": "Patient",
+              "readOnly": false,
+              "removed": true,
+              "required": false,
+              "type": "array"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Date du Rendez-vous",
+              "id": "Date du Rendez-vous",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "dateTime"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Heure du Rendez-vous",
+              "id": "Heure du Rendez-vous",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "dateTime"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Type de Consultation",
+              "id": "Type de Consultation",
+              "options": [
+                {
+                  "name": "Consultation",
+                  "value": "Consultation"
+                },
+                {
+                  "name": "Contrôle",
+                  "value": "Contrôle"
+                },
+                {
+                  "name": "Détartrage",
+                  "value": "Détartrage"
+                },
+                {
+                  "name": "Implant",
+                  "value": "Implant"
+                },
+                {
+                  "name": "Prothèse",
+                  "value": "Prothèse"
+                },
+                {
+                  "name": "Urgence",
+                  "value": "Urgence"
+                },
+                {
+                  "name": "Consultation Générale",
+                  "value": "Consultation Générale"
+                },
+                {
+                  "name": "Consultation Spécialiste",
+                  "value": "Consultation Spécialiste"
+                },
+                {
+                  "name": "Suivi Post-Opératoire",
+                  "value": "Suivi Post-Opératoire"
+                },
+                {
+                  "name": "Consultation Pédiatrique",
+                  "value": "Consultation Pédiatrique"
+                },
+                {
+                  "name": "Consultation Psychologique",
+                  "value": "Consultation Psychologique"
+                }
+              ],
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "options"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Statut Rendez-vous",
+              "id": "Statut Rendez-vous",
+              "options": [
+                {
+                  "name": "En attente",
+                  "value": "En attente"
+                },
+                {
+                  "name": "Confirmé",
+                  "value": "Confirmé"
+                },
+                {
+                  "name": "Annulé",
+                  "value": "Annulé"
+                },
+                {
+                  "name": "Terminé",
+                  "value": "Terminé"
+                }
+              ],
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "options"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Rappel Envoyé",
+              "id": "Rappel Envoyé",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Notes",
+              "id": "Notes",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Proposition Suivante (IA)",
+              "id": "Proposition Suivante (IA)",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Résumé RDV (IA)",
+              "id": "Résumé RDV (IA)",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Thread ID",
+              "id": "Thread ID",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Email Patient",
+              "id": "Email Patient",
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "Date du Rendez-vous": "={{ DateTime.fromFormat($('Parser Classification IA').item.json.date_souhaitee + ' ' + $('Parser Classification IA').item.json.heure_souhaitee, 'yyyy-MM-dd HH:mm', {zone: 'Africa/Nairobi'}).toISO() }}",
+            "Heure du Rendez-vous": "={{ DateTime.fromFormat($('Parser Classification IA').item.json.date_souhaitee + ' ' + $('Parser Classification IA').item.json.heure_souhaitee, 'yyyy-MM-dd HH:mm', {zone: 'Africa/Nairobi'}).toISO() }}",
+            "Notes": "=Patient : {{ $('Parser Classification IA').item.json.nom_patient }}\nEmail : {{ $('Parser Classification IA').item.json.patient_email }}\nTelephone : {{ $('Parser Classification IA').item.json.telephone }}\nMotif : {{ $('Parser Classification IA').item.json.motif }}\nResume : {{ $('Parser Classification IA').item.json.resume }}",
+            "Rappel Envoyé": false,
+            "Statut Rendez-vous": "Confirmé",
+            "Type de Consultation": "={{ $('Parser Classification IA').item.json.type_consultation }}",
+            "Thread ID": "={{ $('Gmail Trigger').item.json.threadId }}",
+            "Email Patient": "={{ $('Parser Classification IA').item.json.patient_email }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "02b8f959-d7da-419d-bdc1-a66cc4693e9b",
+      "name": "Confirmer RDV Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1776,
+        0
+      ],
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "KyJjp9ZIKvT21hI0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "=Bonjour {{ $('Parser Classification IA').item.json.nom_patient }},\n\nVotre rendez-vous est confirme pour le {{ DateTime.fromISO($('Parser Classification IA').item.json.date_souhaitee).setLocale('fr').toFormat('cccc d MMMM yyyy') }} a {{ $('Parser Classification IA').item.json.heure_souhaitee }}.\n\nMotif : {{ $('Parser Classification IA').item.json.motif }}\n\nNous avons hate de vous accueillir au Cabinet Dentaire Maupassant.\n\nCordialement,\nCabinet Dentaire Maupassant",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "3eed95f7-b912-4867-af47-92580171c2e2",
+      "name": "Confirmer par Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        0
+      ],
+      "webhookId": "f3f36bbf-0b4a-48f7-aba5-aea052e6abc1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "n1m1o1t1-0000-0000-0000-000000000001",
+              "leftValue": "={{ $('Parser Classification IA').item.json.nom_patient }}",
+              "operator": {
+                "operation": "notEquals",
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "n1m1o1t1-0000-0000-0000-000000000002",
+              "leftValue": "={{ $('Parser Classification IA').item.json.motif }}",
+              "operator": {
+                "operation": "notEquals",
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ae48bcdc-eae4-4c8c-982f-4f7e0f87e543",
+      "name": "Nom et Motif Presents ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "=Bonjour,\n\nVotre creneau du {{ DateTime.fromISO($('Parser Classification IA').item.json.date_souhaitee).setLocale('fr').toFormat('cccc d MMMM yyyy') }} a {{ $('Parser Classification IA').item.json.heure_souhaitee }} est disponible. Pour le confirmer, il me manque encore :\n{{ $('Parser Classification IA').item.json.nom_patient ? '' : '- Votre nom et prenom\\n' }}{{ $('Parser Classification IA').item.json.telephone ? '' : '- Un numero de telephone\\n' }}{{ $('Parser Classification IA').item.json.motif ? '' : '- Le motif de la consultation\\n' }}\nCordialement,\nCabinet Dentaire Maupassant",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "c048b543-c899-4038-8d91-d2f3ef0b2737",
+      "name": "Demander Infos Manquantes",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1536,
+        304
+      ],
+      "webhookId": "2b151ecf-1f97-4d6c-ae03-94ea0c0e04f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ez0BPg2ht6bObtEH",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst horaires = {\n  1: [[9,0,13,0],[14,0,19,0]],\n  2: [[9,0,13,0],[14,0,18,0]],\n  3: [[9,0,13,0],[14,0,18,0]],\n  4: [[9,0,13,0],[14,0,17,0]],\n  5: [[9,0,13,0],[14,0,17,0]]\n};\n\nconst dateStr = item.date_souhaitee;\nconst heureStr = item.heure_souhaitee;\n\nlet horaires_valides = false;\n\nif (dateStr && heureStr) {\n  const [y, m, d] = dateStr.split('-').map(Number);\n  const [h, min] = heureStr.split(':').map(Number);\n  const dateObj = new Date(Date.UTC(y, m - 1, d));\n  const dow = dateObj.getUTCDay();\n  const plages = horaires[dow];\n  if (plages) {\n    const minutesDemandees = h * 60 + min;\n    horaires_valides = plages.some(([h1,m1,h2,m2]) => {\n      const debut = h1*60+m1;\n      const fin = h2*60+m2 - 30;\n      return minutesDemandees >= debut && minutesDemandees <= fin;\n    });\n  }\n}\n\nreturn [{ json: { ...item, horaires_valides } }];"
+      },
+      "id": "67fa0e5f-5049-49bd-9a0a-bce3d2221e16",
+      "name": "Verifier Horaires Demandes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "h1o1r1a1-0000-0000-0000-000000000001",
+              "leftValue": "={{ $json.horaires_valides }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a77bb0d2-9a3d-4e04-becc-ad24fe0026ff",
+      "name": "Horaires Valides ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        384,
+        288
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Date Precise Demandee ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a record": {
+      "main": [
+        [
+          {
+            "node": "Get many events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parser Classification IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser Classification IA": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many events": {
+      "main": [
+        [
+          {
+            "node": "Calculer Creneaux Disponibles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculer Creneaux Disponibles": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Accuser Reception - Urgence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date Precise Demandee ?": {
+      "main": [
+        [
+          {
+            "node": "Verifier Horaires Demandes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifier Disponibilite Demandee": {
+      "main": [
+        [
+          {
+            "node": "Creneau Demande Disponible ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creneau Demande Disponible ?": {
+      "main": [
+        [
+          {
+            "node": "Nom et Motif Presents ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creer RDV Direct": {
+      "main": [
+        [
+          {
+            "node": "Confirmer RDV Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmer RDV Airtable": {
+      "main": [
+        [
+          {
+            "node": "Confirmer par Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nom et Motif Presents ?": {
+      "main": [
+        [
+          {
+            "node": "Creer RDV Direct",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Demander Infos Manquantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifier Horaires Demandes": {
+      "main": [
+        [
+          {
+            "node": "Horaires Valides ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Horaires Valides ?": {
+      "main": [
+        [
+          {
+            "node": "Verifier Disponibilite Demandee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "afcc3a23-ad56-4d56-8740-dab17bf22d66",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "08ca14c704af6dc666f81b98747ee05fc94d304326c55f2cd126a69095e5ddd1"
+  },
+  "nodeGroups": [],
+  "id": "sDTTTnSsm22LzxQ4",
+  "tags": []
+}
