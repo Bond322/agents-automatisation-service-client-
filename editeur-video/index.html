@@ -112,6 +112,10 @@
   .timecode .frame { color: var(--muted); }
   .transport label { color: var(--muted); font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
   .transport select { background: var(--panel-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+  .volume { display: inline-flex; align-items: center; gap: 6px; }
+  .volume input[type=range] { width: 80px; accent-color: var(--accent); cursor: pointer; }
+  .volume .vol-label { font-size: 12px; color: var(--muted); min-width: 38px; font-variant-numeric: tabular-nums; }
+  .volume.boost .vol-label { color: #ffb020; }
 
   /* ---------- Timeline ---------- */
   .timeline-wrap { padding: 8px 12px 12px; background: var(--panel); }
@@ -260,18 +264,22 @@
       <button class="tbtn" data-act="in" title="Début de boucle (I)">[ I</button>
       <button class="tbtn" data-act="out" title="Fin de boucle (O)">O ]</button>
       <button class="tbtn" data-act="loop" id="btnLoop" title="Boucle (L)">Boucle</button>
-      <button class="tbtn" data-act="mute" id="btnMute" title="Son (M)">Son</button>
-      <label>Vitesse
+      <span class="volume" id="volumeBox">
+        <button class="tbtn" data-act="mute" id="btnMute" title="Couper / remettre le son (M)"></button>
+        <input type="range" id="volume" min="0" max="200" step="5" value="100" title="Volume (↑ / ↓) — au-delà de 100 % le son est amplifié">
+        <span class="vol-label" id="volLabel">100 %</span>
+      </span>
+      <label title="Vitesse de lecture">
         <select id="speed">
           <option value="0.25">0,25×</option><option value="0.5">0,5×</option>
           <option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
         </select>
       </label>
-      <label title="Images par seconde de la vidéo (détecté à la première lecture)">Images/s
+      <label title="Images par seconde de la vidéo (détecté à la première lecture)">
         <select id="fps">
-          <option>24</option><option>25</option><option selected>30</option><option>50</option><option>60</option>
+          <option value="24">24 img/s</option><option value="25">25 img/s</option><option value="30" selected>30 img/s</option><option value="50">50 img/s</option><option value="60">60 img/s</option>
         </select>
-        <span id="fpsAuto" class="hint"></span>
+        <span id="fpsAuto" class="hint" hidden></span>
       </label>
     </div>
 
@@ -299,6 +307,7 @@
         <tr><td><kbd>1</kbd> … <kbd>7</kbd></td><td>Choisir l'outil</td></tr>
         <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Annuler le dernier dessin</td></tr>
         <tr><td><kbd>I</kbd> <kbd>O</kbd> <kbd>L</kbd></td><td>Début / fin / activer la boucle</td></tr>
+        <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Monter / baisser le volume</td></tr>
         <tr><td><kbd>M</kbd></td><td>Couper / remettre le son</td></tr>
         <tr><td><kbd>Échap</kbd></td><td>Désélectionner</td></tr>
       </table>
@@ -492,7 +501,7 @@
     state.fps = Number(fps);
     state.fpsDetected = detected;
     $('#fps').value = String(state.fps);
-    $('#fpsAuto').textContent = detected ? '(détecté)' : '';
+    $('#fps').title = detected ? 'Détecté automatiquement' : 'Choisi manuellement';
     rev++;
     renderAll();
   }
@@ -780,6 +789,7 @@
       if (state.loop.on && state.loop.in != null && state.loop.out != null &&
           (video.currentTime < state.loop.in || video.currentTime >= state.loop.out)) seekTime(state.loop.in);
       else if (video.ended || video.currentTime >= state.meta.duration - 0.05) seekTime(0);
+      ensureAudio();
       video.play().catch(() => {});
     } else video.pause();
   }
@@ -807,11 +817,60 @@
     state.loop.on = !state.loop.on;
     renderLoop();
   }
-  function toggleMute() {
-    video.muted = !video.muted;
-    $('#btnMute').classList.toggle('on', video.muted);
-    $('#btnMute').textContent = video.muted ? 'Muet' : 'Son';
+  // ----- Volume : 0 à 200 % (au-delà de 100 %, amplification via Web Audio) -----
+  const VOLUME_KEY = 'studio-retouches:volume';
+  const volume = { level: 1, muted: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOLUME_KEY));
+    if (saved && typeof saved.level === 'number') { volume.level = clamp(saved.level, 0, 2); volume.muted = !!saved.muted; }
+  } catch (e) { /* préférence facultative */ }
+  let audioCtx = null, gainNode = null;
+  function ensureAudio() {
+    if (audioCtx || !(window.AudioContext || window.webkitAudioContext)) return;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioCtx.createMediaElementSource(video);
+      gainNode = audioCtx.createGain();
+      src.connect(gainNode).connect(audioCtx.destination);
+    } catch (e) { audioCtx = null; gainNode = null; }
+    applyVolume();
   }
+  function applyVolume() {
+    if (gainNode) {
+      video.volume = 1;
+      gainNode.gain.value = volume.level;
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    } else {
+      video.volume = Math.min(1, volume.level);
+    }
+    video.muted = volume.muted;
+    const pct = Math.round(volume.level * 100);
+    $('#volume').value = pct;
+    $('#volLabel').textContent = volume.muted ? 'muet' : `${pct} %`;
+    $('#volumeBox').classList.toggle('boost', pct > 100 && !volume.muted);
+    const silent = volume.muted || pct === 0;
+    $('#btnMute').classList.toggle('on', silent);
+    $('#btnMute').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>' +
+      (silent ? '<path d="M17 9l5 6M22 9l-5 6"/>'
+        : pct < 50 ? '<path d="M16.5 9.5a4 4 0 0 1 0 5"/>'
+        : '<path d="M16.5 9.5a4 4 0 0 1 0 5M19 7a7.5 7.5 0 0 1 0 10"/>') + '</svg>';
+    try { localStorage.setItem(VOLUME_KEY, JSON.stringify(volume)); } catch (e) { /* idem */ }
+  }
+  function setVolume(level) {
+    ensureAudio();
+    volume.level = clamp(Math.round(level * 20) / 20, 0, 2);
+    volume.muted = false;
+    applyVolume();
+  }
+  function toggleMute() {
+    ensureAudio();
+    if (volume.level === 0) { volume.level = 1; volume.muted = false; }
+    else volume.muted = !volume.muted;
+    applyVolume();
+  }
+  $('#volume').addEventListener('input', (e) => setVolume(Number(e.target.value) / 100));
+  $('#volume').addEventListener('change', (e) => e.target.blur()); // les flèches reviennent à la navigation image par image
+  applyVolume();
 
   const actions = {
     start: () => { video.pause(); seekFrame(0); },
@@ -1065,7 +1124,8 @@
   // ================== Clavier ==================
   document.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
-    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') {
+    const typing = tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && !['range', 'checkbox'].includes(e.target.type));
+    if (typing) {
       if (e.key === 'Escape') e.target.blur();
       return;
     }
@@ -1088,6 +1148,8 @@
     else if (k === 'o' || k === 'O') setLoopPoint('out');
     else if (k === 'l' || k === 'L') toggleLoop();
     else if (k === 'm' || k === 'M') toggleMute();
+    else if (k === 'ArrowUp') { setVolume(volume.level + 0.1); e.preventDefault(); }
+    else if (k === 'ArrowDown') { setVolume(volume.level - 0.1); e.preventDefault(); }
     else if (k === 'Escape') { state.selectedId = null; renderAll(); }
     else if (/^[1-7]$/.test(k)) setTool(TOOL_KEYS[Number(k) - 1]);
   });

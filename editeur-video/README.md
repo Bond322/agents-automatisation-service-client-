@@ -38,10 +38,12 @@ Ton travail est **sauvegardé automatiquement** dans le navigateur : en rouvrant
 | `1` à `7` | Outils : lecture, flèche, rectangle, cercle, main levée, texte, point |
 | `Ctrl` + `Z` | Annuler le dernier dessin |
 | `I` / `O` / `L` | Début de boucle / fin de boucle / activer la boucle |
+| `↑` `↓` | Monter / baisser le volume |
 | `M` | Couper ou remettre le son |
 | `Échap` | Désélectionner |
 
 ## Bon à savoir
 
+- **Volume** : le curseur à côté de l'icône de haut-parleur règle le son de 0 à 200 %. Au-delà de 100 %, le son est amplifié (pratique si la musique est trop faible). Le réglage est mémorisé.
 - Le nombre d'images par seconde est **détecté automatiquement** à la première lecture. Tu peux le changer dans le menu « Images/s ».
 - Les positions dans la fiche sont en pixels de la vidéo d'origine, mesurées depuis le coin haut-gauche, avec la zone en clair (« haut droite », « centre de l'image »…).
