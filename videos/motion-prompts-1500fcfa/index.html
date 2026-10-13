@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="fr" data-composition-variables='[
+  {"id":"couleurAccent","type":"color","label":"Couleur principale (orange)","default":"#ff5a1f"},
+  {"id":"couleurChiffre","type":"color","label":"Couleur du grand chiffre « 150 »","default":"#ff5a1f"},
+  {"id":"couleurTexte","type":"color","label":"Couleur des textes clairs","default":"#f4efe6"},
+  {"id":"couleurTexteBadge","type":"color","label":"Couleur du texte posé sur l’orange","default":"#1c0d05"},
+
+  {"id":"introTitre","type":"string","label":"Intro · titre","default":"J’ai payé"},
+  {"id":"prix","type":"string","label":"Prix","default":"1 500"},
+  {"id":"devise","type":"string","label":"Devise","default":"FCFA"},
+  {"id":"introLigne1","type":"string","label":"Intro · phrase, ligne 1","default":"…et voici ce"},
+  {"id":"introLigne2","type":"string","label":"Intro · phrase, ligne 2","default":"que j’ai"},
+  {"id":"introMotFort","type":"string","label":"Intro · mot en couleur","default":"fait"},
+
+  {"id":"marque","type":"string","label":"Fin · nom de la marque","default":"Motion Prompts"},
+  {"id":"nombre","type":"string","label":"Fin · grand chiffre","default":"150"},
+  {"id":"nombreSuffixe","type":"string","label":"Fin · signe après le chiffre","default":"+"},
+  {"id":"finLigne1","type":"string","label":"Fin · sous-titre, ligne 1","default":"prompts motion design"},
+  {"id":"finLigne2","type":"string","label":"Fin · sous-titre, ligne 2","default":"prêts à copier-coller"},
+  {"id":"bouton","type":"string","label":"Fin · texte du bouton","default":"Le lien est juste en dessous"},
+  {"id":"mention","type":"string","label":"Fin · petite mention","default":"Paiement unique · accès immédiat"},
+
+  {"id":"tIntroTitre","type":"number","label":"Moment · titre de l’intro","default":0.5,"min":0,"max":3.5,"step":0.05,"unit":"s"},
+  {"id":"tIntroPrix","type":"number","label":"Moment · prix de l’intro","default":1.25,"min":0,"max":3.5,"step":0.05,"unit":"s"},
+  {"id":"tIntroPhrase","type":"number","label":"Moment · phrase de l’intro","default":2.1,"min":0,"max":3.5,"step":0.05,"unit":"s"},
+  {"id":"tFinChiffre","type":"number","label":"Moment · « 150+ » (après le début de la fin)","default":0.33,"min":0,"max":5,"step":0.05,"unit":"s"},
+  {"id":"tFinSousTitre","type":"number","label":"Moment · sous-titre de fin","default":1.3,"min":0,"max":5,"step":0.05,"unit":"s"},
+  {"id":"tFinPrix","type":"number","label":"Moment · prix de fin","default":1.55,"min":0,"max":5,"step":0.05,"unit":"s"},
+  {"id":"tFinBouton","type":"number","label":"Moment · bouton de fin","default":1.85,"min":0,"max":5,"step":0.05,"unit":"s"}
+]'>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>Motion Prompts 1500 FCFA</title>
+  <script src="assets/gsap.min.js"></script>
+  <style>
+    /*
+      RECETTE « Motion Prompts 1500 FCFA » — format vertical 1080×1920, 30 images/s, 31 s.
+      Les réglages (couleurs, textes, moments d'apparition) sont déclarés tout en haut du fichier,
+      dans data-composition-variables. Le Studio Motion les affiche dans son panneau « Réglages ».
+
+      Déroulé :
+        0,00 → 4,00 s   Intro reconstruite (« J'ai payé 1 500 FCFA… »)
+        4,00 → 24,87 s  Montage d'origine, réutilisé tel quel depuis assets/original.mp4
+        24,87 → 31,00 s Carte de fin reconstruite (« 150+ … »)
+        Bande-son d'origine sur toute la durée.
+    */
+    @font-face { font-family: "Inter Tight"; font-weight: 800; src: url("assets/polices/inter-tight-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter Tight"; font-weight: 900; src: url("assets/polices/inter-tight-latin-900-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 500; src: url("assets/polices/inter-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/polices/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 700; src: url("assets/polices/inter-latin-700-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/polices/inter-latin-800-normal.woff2") format("woff2"); }
+
+    body { margin: 0; background: #000; font-family: "Inter", sans-serif; }
+    #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
+    .plein { position: absolute; inset: 0; width: 100%; height: 100%; }
+    video.plein { object-fit: cover; }
+    .ligne { position: absolute; left: 0; right: 0; display: flex; justify-content: center; align-items: center; }
+
+    /* ---------- Fonds flous ---------- */
+    #fond-intro-cadre { filter: blur(9px) brightness(0.3) saturate(0.9); }
+    #fond-fin-cadre { filter: blur(30px) brightness(0.6) saturate(1.1); }
+    #teinte { background: rgba(84, 22, 120, 0.5); }
+
+    /* ---------- Intro ---------- */
+    #intro-titre {
+      top: 318px;
+      font: 800 132px/1 "Inter Tight", sans-serif; letter-spacing: -0.035em;
+      color: var(--couleurTexte);
+      text-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+      white-space: nowrap;
+    }
+    #intro-badge-ligne { top: 506px; height: 232px; }
+    .badge {
+      display: flex; align-items: baseline; gap: 18px;
+      width: fit-content; background: var(--couleurAccent); color: var(--couleurTexteBadge);
+      white-space: nowrap;
+    }
+    .badge .prix { white-space: pre; word-spacing: 0.1em; }
+    #intro-badge { padding: 20px 46px 24px; border-radius: 30px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45); }
+    #intro-badge .prix { font: 900 178px/1 "Inter Tight", sans-serif; letter-spacing: -0.06em; }
+    #intro-badge .devise { font: 900 64px/1 "Inter Tight", sans-serif; letter-spacing: -0.04em; }
+    #intro-phrase {
+      top: 900px; flex-direction: column;
+      font: 800 66px/1.18 "Inter", sans-serif; letter-spacing: -0.02em;
+      color: #fff; text-align: center; text-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+    }
+    #intro-phrase > span { display: block; white-space: nowrap; }
+    #intro-mot-fort { color: var(--couleurAccent); }
+
+    /* ---------- Carte de fin ---------- */
+    #fin-marque { top: 232px; gap: 20px; font: 700 48px/1 "Inter", sans-serif; color: var(--couleurTexte); white-space: nowrap; }
+    #fin-marque .point { width: 26px; height: 26px; border-radius: 50%; background: var(--couleurAccent); }
+    #fin-chiffre-ligne { top: 452px; height: 250px; }
+    #fin-chiffre { display: flex; align-items: center; width: fit-content; white-space: nowrap; font: 900 318px/0.8 "Inter Tight", sans-serif; letter-spacing: -0.085em; }
+    #fin-nombre { color: var(--couleurChiffre); }
+    #fin-suffixe { color: var(--couleurAccent); margin-left: 0.02em; }
+    #fin-sous-titre {
+      top: 752px; flex-direction: column;
+      font: 600 52px/1.2 "Inter", sans-serif; letter-spacing: -0.01em;
+      color: rgba(244, 239, 230, 0.82); text-align: center;
+    }
+    #fin-sous-titre > span { display: block; white-space: nowrap; }
+    #fin-prix-ligne { top: 1020px; height: 164px; }
+    #fin-prix { padding: 0 44px; height: 164px; align-items: center; border-radius: 30px; }
+    #fin-prix .prix { font: 900 136px/1 "Inter Tight", sans-serif; letter-spacing: -0.06em; }
+    #fin-prix .devise { font: 900 52px/1 "Inter Tight", sans-serif; letter-spacing: -0.04em; margin-top: 30px; }
+    #fin-bouton-ligne { top: 1300px; height: 120px; }
+    #fin-bouton {
+      display: flex; align-items: center; gap: 16px; width: fit-content; height: 120px; padding: 0 56px;
+      border-radius: 60px; background: var(--couleurTexte); color: #16100c;
+      font: 700 50px/1 "Inter", sans-serif; letter-spacing: -0.015em; white-space: nowrap;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+    }
+    #fin-mention { top: 1470px; font: 600 34px/1 "Inter", sans-serif; color: rgba(244, 239, 230, 0.55); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="31">
+
+    <!-- ===== Intro (0 → 4 s) ===== -->
+    <div id="fond-intro-cadre" class="plein">
+      <video id="fond-intro" class="clip plein" src="assets/original.mp4" muted playsinline
+             data-start="0" data-duration="4" data-media-start="5.6" data-track-index="0"></video>
+    </div>
+    <div id="scene-intro" class="clip plein" data-start="0" data-duration="4" data-track-index="1">
+      <div id="intro-titre" class="ligne" data-var-text="introTitre">J’ai payé</div>
+      <div id="intro-badge-ligne" class="ligne">
+        <div id="intro-badge" class="badge">
+          <span class="prix" data-var-text="prix">1 500</span><span class="devise" data-var-text="devise">FCFA</span>
+        </div>
+      </div>
+      <div id="intro-phrase" class="ligne">
+        <span data-var-text="introLigne1">…et voici ce</span>
+        <span><span data-var-text="introLigne2">que j’ai</span> <span id="intro-mot-fort" data-var-text="introMotFort">fait</span> ↓</span>
+      </div>
+    </div>
+
+    <!-- ===== Montage d'origine (4 → 24,87 s), réutilisé tel quel ===== -->
+    <video id="montage" class="clip plein" src="assets/original.mp4" muted playsinline
+           data-start="4" data-duration="20.8667" data-media-start="4" data-track-index="0"></video>
+
+    <!-- ===== Carte de fin (24,87 → 31 s) ===== -->
+    <div id="fond-fin-cadre" class="plein">
+      <video id="fond-fin" class="clip plein" src="assets/original.mp4" muted playsinline
+             data-start="24.8667" data-duration="6.1333" data-media-start="5.6" data-track-index="0"></video>
+      <div id="teinte" class="clip plein" data-start="24.8667" data-duration="6.1333" data-track-index="2"></div>
+    </div>
+    <div id="scene-fin" class="clip plein" data-start="24.8667" data-duration="6.1333" data-track-index="1">
+      <div id="fin-marque" class="ligne"><span class="point"></span><span data-var-text="marque">Motion Prompts</span></div>
+      <div id="fin-chiffre-ligne" class="ligne">
+        <div id="fin-chiffre"><span id="fin-nombre" data-var-text="nombre">150</span><span id="fin-suffixe" data-var-text="nombreSuffixe">+</span></div>
+      </div>
+      <div id="fin-sous-titre" class="ligne">
+        <span data-var-text="finLigne1">prompts motion design</span>
+        <span data-var-text="finLigne2">prêts à copier-coller</span>
+      </div>
+      <div id="fin-prix-ligne" class="ligne">
+        <div id="fin-prix" class="badge">
+          <span class="prix" data-var-text="prix">1 500</span><span class="devise" data-var-text="devise">FCFA</span>
+        </div>
+      </div>
+      <div id="fin-bouton-ligne" class="ligne">
+        <div id="fin-bouton"><span data-var-text="bouton">Le lien est juste en dessous</span><span>↓</span></div>
+      </div>
+      <div id="fin-mention" class="ligne" data-var-text="mention">Paiement unique · accès immédiat</div>
+    </div>
+
+    <!-- ===== Bande-son d'origine ===== -->
+    <audio id="bande-son" src="assets/bande-son.m4a" data-start="0" data-duration="31" data-track-index="3" data-volume="1"></audio>
+  </div>
+
+  <script>
+    // Les moments d'apparition viennent des réglages (variables) déclarés en haut du fichier.
+    const R = window.__hyperframes.getVariables();
+    const debut = (id) => parseFloat(document.getElementById(id).getAttribute("data-start")) || 0;
+    const I = debut("scene-intro");
+    const F = debut("scene-fin");
+    const tl = gsap.timeline({ paused: true });
+
+    // ----- Intro -----
+    tl.fromTo("#fond-intro-cadre", { scale: 1.12 }, { scale: 1, duration: 4, ease: "none" }, I);
+    tl.fromTo("#intro-titre", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, I + R.tIntroTitre);
+    tl.fromTo("#intro-badge", { scale: 0.55, opacity: 0, rotation: -9 }, { scale: 1, opacity: 1, rotation: -3, duration: 0.55, ease: "back.out(2.2)" }, I + R.tIntroPrix);
+    tl.fromTo("#intro-phrase", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, I + R.tIntroPhrase);
+
+    // ----- Carte de fin -----
+    tl.fromTo("#fin-marque", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, F);
+    tl.fromTo("#fond-fin-cadre", { clipPath: "circle(0% at 50% 46%)", scale: 1.15 },
+      { clipPath: "circle(80% at 50% 46%)", scale: 1, duration: 0.4, ease: "power2.inOut" }, F + 0.05);
+    tl.to("#fond-fin-cadre", { scale: 1.06, duration: 5.4, ease: "none" }, F + 0.7);
+    tl.to("#teinte", { backgroundColor: "rgba(120, 16, 40, 0.5)", duration: 1.2, ease: "sine.inOut" }, F + 1.5);
+    tl.to("#teinte", { backgroundColor: "rgba(16, 26, 92, 0.55)", duration: 1.2, ease: "sine.inOut" }, F + 4.1);
+    tl.fromTo("#fin-chiffre", { scale: 1.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" }, F + R.tFinChiffre);
+    tl.fromTo("#fin-sous-titre", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, F + R.tFinSousTitre);
+    tl.fromTo("#fin-prix", { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2)" }, F + R.tFinPrix);
+    tl.fromTo("#fin-bouton", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, F + R.tFinBouton);
+    tl.fromTo("#fin-mention", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power1.out" }, F + R.tFinBouton + 0.15);
+
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>
