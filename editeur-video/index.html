@@ -1,0 +1,1349 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Retouches</title>
+<style>
+  :root {
+    --bg: #0e1014;
+    --panel: #161920;
+    --panel-2: #1d212a;
+    --panel-3: #252a35;
+    --line: #2b313d;
+    --text: #e9ebf1;
+    --muted: #8d95a8;
+    --accent: #7c5cff;
+    --accent-soft: rgba(124, 92, 255, .18);
+    --cyan: #2ee6d6;
+    --danger: #ff4d6a;
+    --ok: #4ade80;
+    --radius: 10px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  /* ---------- Barre du haut ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .brand { font-weight: 700; letter-spacing: .2px; display: flex; align-items: center; gap: 8px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+  .file-name { color: var(--muted); flex: 1; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--panel-3); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 12px; white-space: nowrap;
+  }
+  .btn:hover { border-color: #3c4454; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--danger); background: transparent; border-color: rgba(255, 77, 106, .4); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ---------- Mise en page ---------- */
+  .layout { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+  .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .sidebar { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+
+  /* ---------- Outils ---------- */
+  .toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .tool {
+    width: 36px; height: 34px; display: grid; place-items: center;
+    background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--muted);
+  }
+  .tool:hover { background: var(--panel-3); color: var(--text); }
+  .tool.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  .tool svg { width: 18px; height: 18px; }
+  .sep { width: 1px; height: 24px; background: var(--line); margin: 0 6px; }
+  .swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; }
+  .swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--bg) inset; }
+  .toolbar .grow { flex: 1; }
+  .hint { color: var(--muted); font-size: 12px; }
+
+  /* ---------- Scène vidéo ---------- */
+  .stage-area { flex: 1; min-height: 220px; position: relative; display: grid; place-items: center; padding: 14px; overflow: hidden; }
+  .dropzone {
+    width: min(620px, 100%); padding: 48px 24px; text-align: center;
+    border: 2px dashed var(--line); border-radius: 16px; color: var(--muted);
+  }
+  .dropzone strong { color: var(--text); display: block; font-size: 18px; margin-bottom: 8px; }
+  .stage-area.dragover .dropzone { border-color: var(--accent); background: var(--accent-soft); }
+  .stage { position: relative; background: #000; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  .stage video, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage canvas { touch-action: none; }
+  .stage.drawing canvas { cursor: crosshair; }
+  .text-input {
+    position: absolute; z-index: 5; min-width: 160px;
+    background: rgba(0,0,0,.75); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 8px; outline: none;
+  }
+
+  /* ---------- Transport ---------- */
+  .transport {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 8px 12px; background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .tbtn {
+    height: 32px; min-width: 34px; padding: 0 8px; display: inline-grid; place-items: center;
+    background: var(--panel-3); border: 1px solid var(--line); border-radius: 7px; font-size: 12px;
+  }
+  .tbtn:hover { border-color: #3c4454; }
+  .tbtn.on { background: var(--accent-soft); border-color: var(--accent); }
+  .tbtn.play { min-width: 46px; background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tbtn svg { width: 16px; height: 16px; }
+  .timecode { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding: 0 8px; }
+  .timecode .frame { color: var(--muted); }
+  .transport label { color: var(--muted); font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
+  .transport select { background: var(--panel-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+
+  /* ---------- Timeline ---------- */
+  .timeline-wrap { padding: 8px 12px 12px; background: var(--panel); }
+  .timeline {
+    position: relative; height: 62px; border-radius: 8px; overflow: hidden;
+    background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; user-select: none; touch-action: none;
+  }
+  .thumbs { position: absolute; inset: 0; display: flex; opacity: .55; pointer-events: none; }
+  .thumbs canvas { flex: 1; height: 100%; min-width: 0; }
+  .loop-region { position: absolute; top: 0; bottom: 0; background: rgba(46, 230, 214, .16); border-left: 2px solid var(--cyan); border-right: 2px solid var(--cyan); pointer-events: none; }
+  .markers { position: absolute; inset: 0; }
+  .marker {
+    position: absolute; top: 4px; height: 20px; min-width: 20px; transform: translateX(-10px);
+    border-radius: 6px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+    display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.5); cursor: pointer; border: 0; padding: 0 5px;
+  }
+  .marker.done { background: #4b5263; }
+  .marker.selected { outline: 2px solid #fff; }
+  .range-bar { position: absolute; bottom: 6px; height: 6px; border-radius: 3px; background: var(--danger); opacity: .8; pointer-events: none; }
+  .range-bar.done { background: #4b5263; }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; box-shadow: 0 0 6px rgba(255,255,255,.7); }
+  .playhead::before { content: ""; position: absolute; top: -1px; left: -5px; border: 6px solid transparent; border-top-color: #fff; }
+  .ruler { position: relative; height: 16px; margin-top: 4px; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ruler span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+  /* ---------- Liste des retouches ---------- */
+  .side-head { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+  .side-head h2 { font-size: 15px; margin: 0; flex: 1; }
+  .count { background: var(--panel-3); border-radius: 10px; padding: 1px 8px; font-size: 12px; color: var(--muted); }
+  .comment-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .empty { color: var(--muted); padding: 16px 8px; text-align: center; font-size: 13px; }
+  .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+  .card.selected { border-color: var(--accent); background: #1f1d33; }
+  .card.done { opacity: .6; }
+  .card-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .num { width: 24px; height: 24px; flex: none; border-radius: 6px; background: var(--danger); color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; }
+  .card.done .num { background: #4b5263; }
+  .card-time { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .chip { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--panel-3); color: var(--muted); white-space: nowrap; }
+  .prio { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .prio-Haute { background: var(--danger); } .prio-Moyenne { background: #ffb020; } .prio-Basse { background: var(--ok); }
+  .card-head .spacer { flex: 1; }
+  .done-toggle { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+  .preview { margin-top: 6px; color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .card-editor { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .card-editor textarea { width: 100%; min-height: 84px; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }
+  .card-editor textarea:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .row select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px; }
+  .row .btn { padding: 5px 9px; font-size: 12px; }
+  .field-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .shapes { display: flex; flex-wrap: wrap; gap: 5px; }
+  .shape-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 2px 4px 2px 8px; }
+  .shape-chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .shape-chip button { background: none; border: 0; color: var(--muted); padding: 0 4px; font-size: 14px; line-height: 1; }
+  .shape-chip button:hover { color: var(--danger); }
+  .shortcuts { border-top: 1px solid var(--line); padding: 10px 16px; font-size: 12px; color: var(--muted); }
+  .shortcuts summary { cursor: pointer; color: var(--text); }
+  .shortcuts table { margin-top: 6px; border-collapse: collapse; width: 100%; }
+  .shortcuts td { padding: 2px 0; }
+  kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; background: var(--panel-3); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text); }
+
+  /* ---------- Notifications ---------- */
+  .toast-wrap { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; pointer-events: none; }
+  .toast { background: var(--panel-3); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.5); animation: pop .2s ease-out; }
+  @keyframes pop { from { transform: translateY(8px); opacity: 0; } }
+  .busy { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 40; font-size: 16px; }
+
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    body { overflow: auto; }
+    .layout { display: flex; flex-direction: column; }
+    .sidebar { border-left: 0; border-top: 1px solid var(--line); min-height: 320px; }
+    .stage-area { flex: none; height: 62vw; min-height: 200px; padding: 8px; }
+    .comment-list { overflow: visible; }
+    .topbar, .toolbar, .transport, .timeline-wrap { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>Studio Retouches</div>
+  <div class="file-name" id="fileName">Aucune vidéo chargée</div>
+  <div class="actions">
+    <label class="btn">Ouvrir une vidéo<input type="file" id="fileInput" accept="video/*" hidden></label>
+    <button class="btn ghost" id="btnOpenProject" title="Recharger des retouches enregistrées (.json)">Ouvrir un projet</button>
+    <input type="file" id="projectInput" accept=".json,application/json" hidden>
+    <button class="btn ghost" id="btnSaveProject" disabled title="Enregistrer les retouches dans un fichier .json">Enregistrer le projet</button>
+    <button class="btn ghost" id="btnCopy" disabled title="Copier le texte de la fiche pour le coller dans la conversation">Copier la fiche</button>
+    <button class="btn primary" id="btnExport" disabled title="Télécharger la fiche + les captures annotées">Exporter la fiche (.zip)</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="editor">
+    <div class="toolbar" id="toolbar">
+      <button class="tool" data-tool="none" title="Lecture seule, pas de dessin (1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg></button>
+      <button class="tool active" data-tool="arrow" title="Flèche (2)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 19L19 5M10 5h9v9"/></svg></button>
+      <button class="tool" data-tool="rect" title="Rectangle (3)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+      <button class="tool" data-tool="ellipse" title="Cercle (4)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg></button>
+      <button class="tool" data-tool="free" title="Main levée (5)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17c3-6 5 2 8-3s4-8 7-6 2 7 3 8"/></svg></button>
+      <button class="tool" data-tool="text" title="Texte (6)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg></button>
+      <button class="tool" data-tool="pin" title="Point numéroté (7)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="4"/><path d="M12 14v7"/></svg></button>
+      <span class="sep"></span>
+      <span id="swatches" style="display:flex;gap:6px"></span>
+      <span class="sep"></span>
+      <button class="btn" id="btnNewComment" disabled title="Nouvelle retouche à l'image actuelle (C)">+ Retouche</button>
+      <span class="grow"></span>
+      <span class="hint" id="toolHint">Dessine sur la vidéo : une retouche est créée à l'image affichée.</span>
+    </div>
+
+    <div class="stage-area" id="stageArea">
+      <div class="dropzone" id="dropzone">
+        <strong>Glisse ton fichier MP4 ici</strong>
+        ou clique sur « Ouvrir une vidéo » en haut.<br>
+        La vidéo reste sur ton ordinateur, rien n'est envoyé sur Internet.
+      </div>
+      <div class="stage drawing" id="stage" hidden>
+        <video id="video" playsinline preload="auto"></video>
+        <canvas id="overlay"></canvas>
+        <input class="text-input" id="textInput" placeholder="Texte puis Entrée" hidden>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="tbtn" data-act="start" title="Début (Origine)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="tbtn" data-act="back1s" title="-1 seconde (Maj + ←)">-1s</button>
+      <button class="tbtn" data-act="backFrame" title="Image précédente (←)">-1 img</button>
+      <button class="tbtn play" data-act="play" id="btnPlay" title="Lecture / pause (Espace)">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M7 4l13 8-13 8z"/></svg></button>
+      <button class="tbtn" data-act="fwdFrame" title="Image suivante (→)">+1 img</button>
+      <button class="tbtn" data-act="fwd1s" title="+1 seconde (Maj + →)">+1s</button>
+      <button class="tbtn" data-act="end" title="Fin (Fin)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <span class="timecode" id="timecode">0:00,00 <span class="frame">· image 0 / 0</span></span>
+      <span class="grow" style="flex:1"></span>
+      <button class="tbtn" data-act="in" title="Début de boucle (I)">[ I</button>
+      <button class="tbtn" data-act="out" title="Fin de boucle (O)">O ]</button>
+      <button class="tbtn" data-act="loop" id="btnLoop" title="Boucle (L)">Boucle</button>
+      <button class="tbtn" data-act="mute" id="btnMute" title="Son (M)">Son</button>
+      <label>Vitesse
+        <select id="speed">
+          <option value="0.25">0,25×</option><option value="0.5">0,5×</option>
+          <option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
+        </select>
+      </label>
+      <label title="Images par seconde de la vidéo (détecté à la première lecture)">Images/s
+        <select id="fps">
+          <option>24</option><option>25</option><option selected>30</option><option>50</option><option>60</option>
+        </select>
+        <span id="fpsAuto" class="hint"></span>
+      </label>
+    </div>
+
+    <div class="timeline-wrap">
+      <div class="timeline" id="timeline">
+        <div class="thumbs" id="thumbs"></div>
+        <div class="loop-region" id="loopRegion" hidden></div>
+        <div class="markers" id="markers"></div>
+        <div class="playhead" id="playhead" style="left:0"></div>
+      </div>
+      <div class="ruler" id="ruler"></div>
+    </div>
+  </section>
+
+  <aside class="sidebar">
+    <div class="side-head"><h2>Retouches</h2><span class="count" id="count">0</span></div>
+    <div class="comment-list" id="commentList"></div>
+    <details class="shortcuts">
+      <summary>Raccourcis clavier</summary>
+      <table>
+        <tr><td><kbd>Espace</kbd></td><td>Lecture / pause</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Image précédente / suivante</td></tr>
+        <tr><td><kbd>Maj</kbd> + <kbd>←</kbd> <kbd>→</kbd></td><td>Reculer / avancer d'1 seconde</td></tr>
+        <tr><td><kbd>C</kbd></td><td>Nouvelle retouche ici</td></tr>
+        <tr><td><kbd>1</kbd> … <kbd>7</kbd></td><td>Choisir l'outil</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Annuler le dernier dessin</td></tr>
+        <tr><td><kbd>I</kbd> <kbd>O</kbd> <kbd>L</kbd></td><td>Début / fin / activer la boucle</td></tr>
+        <tr><td><kbd>M</kbd></td><td>Couper / remettre le son</td></tr>
+        <tr><td><kbd>Échap</kbd></td><td>Désélectionner</td></tr>
+      </table>
+    </details>
+  </aside>
+</main>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ================== Constantes & état ==================
+  const CATEGORIES = ['Timing', 'Texte', 'Couleur', 'Position / taille', 'Animation / mouvement', 'Transition', 'Son / musique', 'Image / élément', 'Autre'];
+  const PRIORITIES = ['Haute', 'Moyenne', 'Basse'];
+  const COLORS = [
+    { hex: '#ff3b5c', name: 'rouge' },
+    { hex: '#ffd60a', name: 'jaune' },
+    { hex: '#2ee6d6', name: 'cyan' },
+    { hex: '#4ade80', name: 'vert' },
+    { hex: '#ffffff', name: 'blanc' },
+  ];
+  const TOOL_NAMES = { arrow: 'Flèche', rect: 'Rectangle', ellipse: 'Cercle', free: 'Main levée', text: 'Texte', pin: 'Point' };
+  const TOOL_KEYS = ['none', 'arrow', 'rect', 'ellipse', 'free', 'text', 'pin'];
+  const HOLD_SECONDS = 0.75; // durée d'affichage des dessins d'une retouche sans fin
+
+  const $ = (s) => document.querySelector(s);
+  const video = $('#video');
+  const overlay = $('#overlay');
+  const octx = overlay.getContext('2d');
+  const stage = $('#stage');
+  const stageArea = $('#stageArea');
+  const timeline = $('#timeline');
+
+  const state = {
+    meta: null,          // { name, duration, width, height }
+    fps: 30,
+    fpsDetected: false,
+    comments: [],        // { id, tStart, tEnd, category, priority, text, shapes, done }
+    selectedId: null,
+    tool: 'arrow',
+    color: COLORS[0].hex,
+    loop: { on: false, in: null, out: null },
+  };
+  let objectUrl = null;
+  let draft = null;      // forme en cours de dessin
+  let rev = 0;           // incrémenté à chaque changement => redessin
+  let thumbsToken = 0;
+
+  // ================== Utilitaires ==================
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const totalFrames = () => state.meta ? Math.max(1, Math.floor(state.meta.duration * state.fps + 1e-4)) : 0;
+  const frameOf = (t) => clamp(Math.floor(t * state.fps + 1e-4), 0, Math.max(0, totalFrames() - 1));
+  const timeOfFrame = (f) => (f + 0.5) / state.fps; // milieu de l'image : positionnement fiable
+  const snap = (t) => frameOf(t) / state.fps;      // temps affiché = début exact de l'image
+
+  function fmtTime(t) {
+    const m = Math.floor(t / 60);
+    const s = t - m * 60;
+    const whole = Math.floor(s);
+    const cs = Math.floor((s - whole) * 100);
+    return `${m}:${String(whole).padStart(2, '0')},${String(cs).padStart(2, '0')}`;
+  }
+  const fmtSec = (t) => t.toFixed(2).replace('.', ',') + ' s';
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const colorName = (hex) => (COLORS.find((c) => c.hex === hex) || { name: hex }).name;
+
+  function toast(msg, ms = 2600) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    $('#toasts').appendChild(el);
+    setTimeout(() => el.remove(), ms);
+  }
+
+  const sorted = () => [...state.comments].sort((a, b) => a.tStart - b.tStart);
+  const numberOf = (c) => sorted().indexOf(c) + 1;
+  const getSelected = () => state.comments.find((c) => c.id === state.selectedId) || null;
+
+  function commentFrames(c) {
+    const s = frameOf(c.tStart);
+    const e = c.tEnd != null ? frameOf(c.tEnd) : s;
+    return { s, e };
+  }
+  function isVisibleAt(c, f) {
+    const { s, e } = commentFrames(c);
+    const end = c.tEnd != null ? e : s + Math.round(state.fps * HOLD_SECONDS);
+    return f >= s && f <= end;
+  }
+
+  // ================== Sauvegarde automatique ==================
+  const storageKey = () => state.meta ? `studio-retouches:${state.meta.name}:${Math.round(state.meta.duration * 1000)}` : null;
+  let saveTimer = null;
+  function save() {
+    rev++;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const key = storageKey();
+      if (!key) return;
+      try {
+        localStorage.setItem(key, JSON.stringify({ fps: state.fps, fpsDetected: state.fpsDetected, comments: state.comments }));
+      } catch (e) { /* stockage indisponible : on continue sans */ }
+    }, 300);
+  }
+  function restore() {
+    const key = storageKey();
+    if (!key) return false;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data.comments)) return false;
+      state.comments = data.comments;
+      if (data.fps) setFps(data.fps, !!data.fpsDetected);
+      return state.comments.length > 0;
+    } catch (e) { return false; }
+  }
+
+  // ================== Chargement vidéo ==================
+  function loadVideoFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('video/') && !/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
+      toast('Ce fichier n\'est pas une vidéo.');
+      return;
+    }
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+    state.comments = [];
+    state.selectedId = null;
+    state.loop = { on: false, in: null, out: null };
+    state.fpsDetected = false;
+    video.src = objectUrl;
+    video.dataset.name = file.name;
+    $('#fileName').textContent = file.name;
+  }
+
+  video.addEventListener('loadedmetadata', () => {
+    state.meta = {
+      name: video.dataset.name || 'video.mp4',
+      duration: video.duration,
+      width: video.videoWidth,
+      height: video.videoHeight,
+    };
+    $('#dropzone').hidden = true;
+    stage.hidden = false;
+    for (const id of ['#btnSaveProject', '#btnCopy', '#btnExport', '#btnNewComment']) $(id).disabled = false;
+    if (pendingProject) { applyProject(pendingProject); pendingProject = null; }
+    else if (restore()) toast(`${state.comments.length} retouche(s) restaurée(s) pour cette vidéo.`);
+    layoutStage();
+    renderAll();
+    buildThumbnails();
+    video.currentTime = timeOfFrame(0);
+  });
+  video.addEventListener('error', () => toast('Impossible de lire cette vidéo dans le navigateur.'));
+  video.addEventListener('play', () => { updatePlayIcon(); detectFps(); });
+  video.addEventListener('pause', updatePlayIcon);
+  video.addEventListener('seeked', () => { rev++; });
+
+  $('#fileInput').addEventListener('change', (e) => { loadVideoFile(e.target.files[0]); e.target.value = ''; });
+  ['dragenter', 'dragover'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); stageArea.classList.add('dragover'); }));
+  ['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); stageArea.classList.remove('dragover'); }));
+  document.addEventListener('drop', (e) => {
+    const file = e.dataTransfer && e.dataTransfer.files[0];
+    if (!file) return;
+    if (/\.json$/i.test(file.name)) loadProjectFile(file); else loadVideoFile(file);
+  });
+
+  // Détection des images/s pendant la lecture (si le navigateur le permet)
+  function detectFps() {
+    if (state.fpsDetected || !('requestVideoFrameCallback' in HTMLVideoElement.prototype)) return;
+    const times = [];
+    const onFrame = (now, md) => {
+      times.push(md.mediaTime);
+      if (times.length < 40 && !video.paused) { video.requestVideoFrameCallback(onFrame); return; }
+      let min = Infinity;
+      for (let i = 1; i < times.length; i++) {
+        const d = times[i] - times[i - 1];
+        if (d > 0.005 && d < min) min = d;
+      }
+      if (!isFinite(min)) return;
+      const raw = 1 / min;
+      const common = [24, 25, 30, 50, 60];
+      const best = common.reduce((a, b) => Math.abs(b - raw) < Math.abs(a - raw) ? b : a);
+      if (Math.abs(best - raw) < 2.5) { setFps(best, true); save(); }
+    };
+    video.requestVideoFrameCallback(onFrame);
+  }
+  function setFps(fps, detected) {
+    state.fps = Number(fps);
+    state.fpsDetected = detected;
+    $('#fps').value = String(state.fps);
+    $('#fpsAuto').textContent = detected ? '(détecté)' : '';
+    rev++;
+    renderAll();
+  }
+  $('#fps').addEventListener('change', (e) => { setFps(e.target.value, false); save(); });
+
+  // ================== Mise en page de la scène ==================
+  function layoutStage() {
+    if (!state.meta) return;
+    const r = stageArea.getBoundingClientRect();
+    const pad = parseFloat(getComputedStyle(stageArea).paddingLeft) * 2;
+    const availW = r.width - pad, availH = r.height - pad;
+    const ar = state.meta.width / state.meta.height || 16 / 9;
+    let w = availW, h = w / ar;
+    if (h > availH) { h = availH; w = h * ar; }
+    stage.style.width = Math.max(10, w) + 'px';
+    stage.style.height = Math.max(10, h) + 'px';
+    const dpr = window.devicePixelRatio || 1;
+    overlay.width = Math.round(w * dpr);
+    overlay.height = Math.round(h * dpr);
+    rev++;
+  }
+  new ResizeObserver(() => { layoutStage(); renderTimeline(); }).observe(stageArea);
+
+  // ================== Dessin des formes ==================
+  function drawShape(ctx, s, W, H, label, alpha = 1) {
+    const lw = Math.max(2, Math.min(W, H) * 0.006);
+    const P = (p) => [p[0] * W, p[1] * H];
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = s.color;
+    ctx.fillStyle = s.color;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(0,0,0,.6)';
+    ctx.shadowBlur = lw * 1.5;
+    const pts = s.points.map(P);
+    if (s.type === 'arrow' && pts.length > 1) {
+      const [a, b] = [pts[0], pts[pts.length - 1]];
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const head = lw * 5;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(b[0], b[1]);
+      ctx.lineTo(b[0] - head * Math.cos(ang - 0.45), b[1] - head * Math.sin(ang - 0.45));
+      ctx.lineTo(b[0] - head * Math.cos(ang + 0.45), b[1] - head * Math.sin(ang + 0.45));
+      ctx.closePath(); ctx.fill();
+    } else if (s.type === 'rect' && pts.length > 1) {
+      const [a, b] = [pts[0], pts[1]];
+      ctx.strokeRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+    } else if (s.type === 'ellipse' && pts.length > 1) {
+      const [a, b] = [pts[0], pts[1]];
+      ctx.beginPath();
+      ctx.ellipse((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.abs(b[0] - a[0]) / 2, Math.abs(b[1] - a[1]) / 2, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (s.type === 'free' && pts.length > 1) {
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]);
+      ctx.stroke();
+    } else if (s.type === 'text') {
+      const size = Math.max(12, H * 0.042);
+      ctx.font = `700 ${size}px system-ui, sans-serif`;
+      ctx.textBaseline = 'top';
+      const m = ctx.measureText(s.text);
+      const pad = size * 0.3;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(0,0,0,.72)';
+      ctx.fillRect(pts[0][0] - pad, pts[0][1] - pad, m.width + pad * 2, size + pad * 2);
+      ctx.fillStyle = s.color;
+      ctx.fillText(s.text, pts[0][0], pts[0][1]);
+    } else if (s.type === 'pin') {
+      const r = Math.max(9, Math.min(W, H) * 0.028);
+      const [x, y] = pts[0];
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = s.color === '#ffffff' || s.color === '#ffd60a' ? '#000' : '#fff';
+      ctx.font = `800 ${r * 1.1}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(label), x, y + r * 0.05);
+    }
+    ctx.restore();
+  }
+
+  function shapeAnchor(s) {
+    if (s.type === 'rect' || s.type === 'ellipse') {
+      return [Math.min(s.points[0][0], s.points[1][0]), Math.min(s.points[0][1], s.points[1][1])];
+    }
+    return s.points[0];
+  }
+
+  function drawBadge(ctx, n, s, W, H, alpha = 1) {
+    if (s.type === 'pin') return;
+    const r = Math.max(8, Math.min(W, H) * 0.02);
+    let [x, y] = shapeAnchor(s);
+    x = clamp(x * W - r * 1.2, r, W - r);
+    y = clamp(y * H - r * 1.2, r, H - r);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ff3b5c';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.5, r * 0.15); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `800 ${r * 1.1}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(n), x, y + r * 0.05);
+    ctx.restore();
+  }
+
+  function drawComment(ctx, c, W, H, alpha) {
+    const n = numberOf(c);
+    c.shapes.forEach((s) => drawShape(ctx, s, W, H, n, alpha));
+    if (c.shapes.length) drawBadge(ctx, n, c.shapes[0], W, H, alpha);
+  }
+
+  function drawOverlay() {
+    const W = overlay.width, H = overlay.height;
+    octx.clearRect(0, 0, W, H);
+    if (!state.meta) return;
+    const f = frameOf(video.currentTime);
+    for (const c of sorted()) {
+      if (!isVisibleAt(c, f)) continue;
+      const alpha = state.selectedId && c.id !== state.selectedId ? 0.45 : 1;
+      drawComment(octx, c, W, H, alpha);
+    }
+    if (draft) drawShape(octx, draft, W, H, '', 1);
+  }
+
+  // ================== Interaction de dessin ==================
+  function pointerPos(e) {
+    const r = overlay.getBoundingClientRect();
+    return [clamp((e.clientX - r.left) / r.width, 0, 1), clamp((e.clientY - r.top) / r.height, 0, 1)];
+  }
+
+  // Retouche qui reçoit les dessins : la sélectionnée si elle couvre l'image affichée, sinon une nouvelle
+  function targetComment() {
+    const f = frameOf(video.currentTime);
+    const sel = getSelected();
+    if (sel) {
+      const { s, e } = commentFrames(sel);
+      if (f >= s && f <= e) return sel;
+    }
+    return createComment();
+  }
+
+  function createComment() {
+    video.pause();
+    const c = {
+      id: uid(),
+      tStart: timeOfFrame(frameOf(video.currentTime)),
+      tEnd: null,
+      category: 'Autre',
+      priority: 'Moyenne',
+      text: '',
+      shapes: [],
+      done: false,
+    };
+    state.comments.push(c);
+    state.selectedId = c.id;
+    save();
+    renderAll();
+    return c;
+  }
+
+  overlay.addEventListener('pointerdown', (e) => {
+    if (!state.meta || state.tool === 'none') return;
+    e.preventDefault();
+    video.pause();
+    const p = pointerPos(e);
+    if (state.tool === 'text') { openTextInput(p); return; }
+    const c = targetComment();
+    if (state.tool === 'pin') {
+      c.shapes.push({ type: 'pin', color: state.color, points: [p] });
+      save(); renderList(); focusText();
+      return;
+    }
+    draft = { type: state.tool, color: state.color, points: [p, p], commentId: c.id };
+    if (state.tool === 'free') draft.points = [p];
+    overlay.setPointerCapture(e.pointerId);
+    rev++;
+  });
+  overlay.addEventListener('pointermove', (e) => {
+    if (!draft) return;
+    const p = pointerPos(e);
+    if (draft.type === 'free') {
+      const last = draft.points[draft.points.length - 1];
+      if (Math.hypot(p[0] - last[0], p[1] - last[1]) > 0.003) draft.points.push(p);
+    } else {
+      draft.points[1] = p;
+    }
+    rev++;
+  });
+  const endDraw = () => {
+    if (!draft) return;
+    const d = draft;
+    draft = null;
+    const c = state.comments.find((x) => x.id === d.commentId);
+    let size;
+    if (d.type === 'free') {
+      const xs = d.points.map((p) => p[0]), ys = d.points.map((p) => p[1]);
+      size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    } else {
+      size = Math.hypot(d.points[1][0] - d.points[0][0], d.points[1][1] - d.points[0][1]);
+    }
+    if (c && size > 0.008) {
+      delete d.commentId;
+      d.points = d.points.map((p) => [+p[0].toFixed(4), +p[1].toFixed(4)]);
+      c.shapes.push(d);
+      save(); renderList(); focusText();
+    } else {
+      rev++;
+    }
+  };
+  overlay.addEventListener('pointerup', endDraw);
+  overlay.addEventListener('pointercancel', endDraw);
+
+  const textInput = $('#textInput');
+  let textPos = null;
+  function openTextInput(p) {
+    textPos = p;
+    textInput.value = '';
+    textInput.hidden = false;
+    textInput.style.left = `${p[0] * 100}%`;
+    textInput.style.top = `${p[1] * 100}%`;
+    textInput.style.color = state.color;
+    textInput.focus();
+  }
+  function commitText(keep) {
+    if (textInput.hidden) return;
+    const val = textInput.value.trim();
+    textInput.hidden = true;
+    if (keep && val && textPos) {
+      const c = targetComment();
+      c.shapes.push({ type: 'text', color: state.color, points: [textPos], text: val });
+      save(); renderList();
+    }
+    textPos = null;
+  }
+  textInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') commitText(true);
+    if (e.key === 'Escape') commitText(false);
+  });
+  textInput.addEventListener('blur', () => commitText(true));
+
+  function focusText() {
+    const ta = document.querySelector('.card.selected textarea');
+    if (ta && !ta.value) ta.focus({ preventScroll: true });
+  }
+
+  // ================== Barre d'outils ==================
+  const swatches = $('#swatches');
+  COLORS.forEach((c) => {
+    const b = document.createElement('button');
+    b.className = 'swatch' + (c.hex === state.color ? ' active' : '');
+    b.style.background = c.hex;
+    b.title = `Couleur ${c.name}`;
+    b.addEventListener('click', () => {
+      state.color = c.hex;
+      swatches.querySelectorAll('.swatch').forEach((s) => s.classList.toggle('active', s === b));
+    });
+    swatches.appendChild(b);
+  });
+  function setTool(t) {
+    state.tool = t;
+    document.querySelectorAll('.tool').forEach((b) => b.classList.toggle('active', b.dataset.tool === t));
+    stage.classList.toggle('drawing', t !== 'none');
+    $('#toolHint').textContent = t === 'none'
+      ? 'Mode lecture : clique sur la vidéo sans dessiner.'
+      : `${TOOL_NAMES[t]} : dessine sur la vidéo, une retouche est créée à l'image affichée.`;
+  }
+  document.querySelectorAll('.tool').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
+  $('#btnNewComment').addEventListener('click', () => { createComment(); focusText(); });
+
+  // ================== Lecture ==================
+  function seekTime(t) {
+    if (!state.meta) return;
+    video.currentTime = clamp(t, 0, state.meta.duration - 0.0005);
+    rev++;
+  }
+  function seekFrame(f) { seekTime(timeOfFrame(clamp(f, 0, totalFrames() - 1))); }
+  function stepFrames(n) { video.pause(); seekFrame(frameOf(video.currentTime) + n); }
+  function togglePlay() {
+    if (!state.meta) return;
+    if (video.paused) {
+      if (state.loop.on && state.loop.in != null && state.loop.out != null &&
+          (video.currentTime < state.loop.in || video.currentTime >= state.loop.out)) seekTime(state.loop.in);
+      else if (video.ended || video.currentTime >= state.meta.duration - 0.05) seekTime(0);
+      video.play().catch(() => {});
+    } else video.pause();
+  }
+  function updatePlayIcon() {
+    $('#playIcon').innerHTML = video.paused
+      ? '<path d="M7 4l13 8-13 8z"/>'
+      : '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+  }
+  function setLoopPoint(which) {
+    if (!state.meta) return;
+    const t = timeOfFrame(frameOf(video.currentTime));
+    state.loop[which] = t;
+    if (state.loop.in != null && state.loop.out != null && state.loop.in > state.loop.out) {
+      [state.loop.in, state.loop.out] = [state.loop.out, state.loop.in];
+    }
+    if (state.loop.in != null && state.loop.out != null) state.loop.on = true;
+    renderLoop();
+    toast(which === 'in' ? `Début de boucle : ${fmtTime(snap(t))}` : `Fin de boucle : ${fmtTime(snap(t))}`, 1500);
+  }
+  function toggleLoop() {
+    if (state.loop.in == null || state.loop.out == null) {
+      toast('Place d\'abord le début (I) et la fin (O) de la boucle.');
+      return;
+    }
+    state.loop.on = !state.loop.on;
+    renderLoop();
+  }
+  function toggleMute() {
+    video.muted = !video.muted;
+    $('#btnMute').classList.toggle('on', video.muted);
+    $('#btnMute').textContent = video.muted ? 'Muet' : 'Son';
+  }
+
+  const actions = {
+    start: () => { video.pause(); seekFrame(0); },
+    end: () => { video.pause(); seekFrame(totalFrames() - 1); },
+    back1s: () => stepFrames(-state.fps),
+    fwd1s: () => stepFrames(state.fps),
+    backFrame: () => stepFrames(-1),
+    fwdFrame: () => stepFrames(1),
+    play: togglePlay,
+    in: () => setLoopPoint('in'),
+    out: () => setLoopPoint('out'),
+    loop: toggleLoop,
+    mute: toggleMute,
+  };
+  document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => actions[b.dataset.act]()));
+  $('#speed').addEventListener('change', (e) => { video.playbackRate = Number(e.target.value); });
+
+  // ================== Timeline ==================
+  let scrubbing = false;
+  function timeFromTimeline(e) {
+    const r = timeline.getBoundingClientRect();
+    return clamp((e.clientX - r.left) / r.width, 0, 1) * state.meta.duration;
+  }
+  timeline.addEventListener('pointerdown', (e) => {
+    if (!state.meta || e.target.closest('.marker')) return;
+    scrubbing = true;
+    video.pause();
+    timeline.setPointerCapture(e.pointerId);
+    seekFrame(frameOf(timeFromTimeline(e)));
+  });
+  timeline.addEventListener('pointermove', (e) => { if (scrubbing) seekFrame(frameOf(timeFromTimeline(e))); });
+  const stopScrub = () => { scrubbing = false; };
+  timeline.addEventListener('pointerup', stopScrub);
+  timeline.addEventListener('pointercancel', stopScrub);
+
+  function renderTimeline() {
+    const markers = $('#markers');
+    markers.innerHTML = '';
+    if (!state.meta) return;
+    const D = state.meta.duration;
+    sorted().forEach((c, i) => {
+      if (c.tEnd != null) {
+        const bar = document.createElement('div');
+        bar.className = 'range-bar' + (c.done ? ' done' : '');
+        bar.style.left = `${(c.tStart / D) * 100}%`;
+        bar.style.width = `${Math.max(0.3, ((c.tEnd - c.tStart) / D) * 100)}%`;
+        markers.appendChild(bar);
+      }
+      const m = document.createElement('button');
+      m.className = 'marker' + (c.done ? ' done' : '') + (c.id === state.selectedId ? ' selected' : '');
+      m.style.left = `${(c.tStart / D) * 100}%`;
+      m.textContent = i + 1;
+      m.title = `Retouche ${i + 1} · ${fmtTime(snap(c.tStart))}${c.text ? ' · ' + c.text.slice(0, 60) : ''}`;
+      m.addEventListener('click', (e) => { e.stopPropagation(); selectComment(c.id, true); });
+      markers.appendChild(m);
+    });
+    renderRuler();
+    renderLoop();
+  }
+
+  function renderRuler() {
+    const ruler = $('#ruler');
+    ruler.innerHTML = '';
+    if (!state.meta) return;
+    const D = state.meta.duration;
+    const width = ruler.getBoundingClientRect().width || 600;
+    const target = D / Math.max(2, Math.floor(width / 70));
+    const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
+    const step = steps.find((s) => s >= target) || 600;
+    for (let t = 0; t <= D + 1e-6; t += step) {
+      const sp = document.createElement('span');
+      sp.style.left = `${(t / D) * 100}%`;
+      sp.textContent = step < 1 ? fmtSec(t) : fmtTime(t).replace(/,\d\d$/, '');
+      if (t === 0) sp.style.transform = 'none';
+      ruler.appendChild(sp);
+    }
+  }
+
+  function renderLoop() {
+    const reg = $('#loopRegion');
+    const { in: a, out: b, on } = state.loop;
+    $('#btnLoop').classList.toggle('on', on);
+    if (!state.meta || a == null || b == null) { reg.hidden = true; return; }
+    reg.hidden = false;
+    reg.style.opacity = on ? 1 : 0.4;
+    reg.style.left = `${(a / state.meta.duration) * 100}%`;
+    reg.style.width = `${((b - a) / state.meta.duration) * 100}%`;
+  }
+
+  // Vignettes de la timeline (2e lecteur caché pour ne pas gêner la lecture)
+  async function buildThumbnails() {
+    const token = ++thumbsToken;
+    const box = $('#thumbs');
+    box.innerHTML = '';
+    if (!state.meta || !objectUrl) return;
+    const n = clamp(Math.round(timeline.getBoundingClientRect().width / 90), 4, 24);
+    const tv = document.createElement('video');
+    tv.muted = true; tv.preload = 'auto'; tv.src = objectUrl;
+    try {
+      await new Promise((res, rej) => { tv.onloadeddata = res; tv.onerror = rej; });
+      const h = 62, w = Math.round(h * state.meta.width / state.meta.height);
+      for (let i = 0; i < n; i++) {
+        if (token !== thumbsToken) return;
+        await new Promise((res) => { tv.onseeked = res; tv.currentTime = ((i + 0.5) / n) * state.meta.duration; });
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(tv, 0, 0, w, h);
+        box.appendChild(c);
+      }
+    } catch (e) { /* vignettes facultatives */ }
+    tv.removeAttribute('src'); tv.load();
+  }
+
+  // ================== Liste des retouches ==================
+  function selectComment(id, seek) {
+    state.selectedId = id;
+    const c = getSelected();
+    if (c && seek) { video.pause(); seekTime(c.tStart); }
+    rev++;
+    renderAll();
+    const card = document.querySelector(`.card[data-id="${id}"]`);
+    if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function deleteComment(c) {
+    if (!confirm(`Supprimer la retouche ${numberOf(c)} ?`)) return;
+    state.comments = state.comments.filter((x) => x !== c);
+    if (state.selectedId === c.id) state.selectedId = null;
+    save(); renderAll();
+  }
+
+  function timeLabel(c) {
+    return c.tEnd != null ? `${fmtTime(snap(c.tStart))} → ${fmtTime(snap(c.tEnd))}` : fmtTime(snap(c.tStart));
+  }
+
+  function renderList() {
+    const list = $('#commentList');
+    const items = sorted();
+    $('#count').textContent = items.length;
+    if (!items.length) {
+      list.innerHTML = `<div class="empty">${state.meta
+        ? 'Aucune retouche pour l\'instant.<br>Mets la vidéo en pause au bon moment, puis dessine dessus ou clique sur « + Retouche ».'
+        : 'Ouvre une vidéo pour commencer.'}</div>`;
+      renderTimeline();
+      return;
+    }
+    list.innerHTML = '';
+    items.forEach((c, i) => {
+      const sel = c.id === state.selectedId;
+      const card = document.createElement('div');
+      card.className = 'card' + (sel ? ' selected' : '') + (c.done ? ' done' : '');
+      card.dataset.id = c.id;
+      card.innerHTML = `
+        <div class="card-head">
+          <span class="num">${i + 1}</span>
+          <span class="card-time">${timeLabel(c)}</span>
+          <span class="chip">${escapeHtml(c.category)}</span>
+          <span class="prio prio-${c.priority}" title="Priorité ${c.priority}"></span>
+          <span class="spacer"></span>
+          <label class="done-toggle" title="Marquer comme faite"><input type="checkbox" data-f="done" ${c.done ? 'checked' : ''}>Faite</label>
+        </div>
+        ${sel ? `
+        <div class="card-editor">
+          <textarea data-f="text" placeholder="Décris la retouche : ce qui ne va pas, et ce que tu veux à la place…">${escapeHtml(c.text)}</textarea>
+          <div class="row">
+            <select data-f="category" title="Catégorie">${CATEGORIES.map((x) => `<option ${x === c.category ? 'selected' : ''}>${x}</option>`).join('')}</select>
+            <select data-f="priority" title="Priorité">${PRIORITIES.map((x) => `<option value="${x}" ${x === c.priority ? 'selected' : ''}>Priorité ${x.toLowerCase()}</option>`).join('')}</select>
+          </div>
+          <span class="field-label">Moment</span>
+          <div class="row">
+            <button class="btn" data-a="start" title="Déplacer le début à l'image affichée">Début ici</button>
+            <button class="btn" data-a="end" title="Faire durer la retouche jusqu'à l'image affichée">Fin ici</button>
+            ${c.tEnd != null ? '<button class="btn ghost" data-a="noend">Retirer la fin</button><button class="btn ghost" data-a="loop" title="Rejouer cette plage en boucle">Boucler</button>' : ''}
+          </div>
+          <span class="field-label">Dessins (${c.shapes.length})</span>
+          <div class="shapes">${c.shapes.length ? c.shapes.map((s, k) => `
+            <span class="shape-chip"><i style="background:${s.color}"></i>${TOOL_NAMES[s.type]}${s.type === 'text' ? ' « ' + escapeHtml(s.text.slice(0, 14)) + ' »' : ''}
+            <button data-a="rmshape" data-k="${k}" title="Effacer">×</button></span>`).join('')
+            : '<span class="hint">Aucun : dessine sur la vidéo pour montrer précisément l\'endroit.</span>'}</div>
+          <div class="row" style="justify-content:space-between">
+            <button class="btn ghost" data-a="goto">Aller à l'image</button>
+            <button class="btn danger" data-a="delete">Supprimer</button>
+          </div>
+        </div>` : (c.text ? `<div class="preview">${escapeHtml(c.text)}</div>` : '<div class="preview"><em>Sans description</em></div>')}
+      `;
+      card.querySelector('.card-head').addEventListener('click', (e) => {
+        if (e.target.closest('.done-toggle')) return;
+        selectComment(c.id, true);
+      });
+      card.querySelector('[data-f="done"]').addEventListener('change', (e) => { c.done = e.target.checked; save(); renderAll(); });
+      if (sel) {
+        const ta = card.querySelector('[data-f="text"]');
+        ta.addEventListener('input', () => { c.text = ta.value; save(); });
+        ta.addEventListener('change', renderTimeline);
+        card.querySelector('[data-f="category"]').addEventListener('change', (e) => { c.category = e.target.value; save(); renderAll(); });
+        card.querySelector('[data-f="priority"]').addEventListener('change', (e) => { c.priority = e.target.value; save(); renderAll(); });
+        card.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
+          const t = timeOfFrame(frameOf(video.currentTime));
+          switch (b.dataset.a) {
+            case 'start':
+              c.tStart = t;
+              if (c.tEnd != null && c.tEnd < t) c.tEnd = null;
+              break;
+            case 'end':
+              if (t <= c.tStart) { toast('Avance la vidéo après le début de la retouche, puis clique « Fin ici ».'); return; }
+              c.tEnd = t;
+              break;
+            case 'noend': c.tEnd = null; break;
+            case 'loop':
+              state.loop = { on: true, in: c.tStart, out: c.tEnd };
+              seekTime(c.tStart); renderLoop(); video.play().catch(() => {});
+              return;
+            case 'rmshape': c.shapes.splice(Number(b.dataset.k), 1); break;
+            case 'goto': video.pause(); seekTime(c.tStart); return;
+            case 'delete': deleteComment(c); return;
+          }
+          save(); renderAll();
+        }));
+      }
+      list.appendChild(card);
+    });
+    renderTimeline();
+  }
+
+  function renderAll() {
+    renderList();
+    rev++;
+  }
+
+  // ================== Boucle d'affichage ==================
+  let lastKey = '';
+  function updateTimeUI() {
+    const t = video.currentTime;
+    const f = frameOf(t);
+    $('#timecode').innerHTML = `${fmtTime(snap(t))} <span class="frame">· image ${f} / ${Math.max(0, totalFrames() - 1)}</span>`;
+    $('#playhead').style.left = `${(t / state.meta.duration) * 100}%`;
+  }
+  function tick() {
+    requestAnimationFrame(tick);
+    if (!state.meta) return;
+    const { on, in: a, out: b } = state.loop;
+    if (on && a != null && b != null && !video.paused && video.currentTime >= b + 0.5 / state.fps) seekTime(a);
+    const key = `${video.currentTime}|${rev}`;
+    if (key === lastKey) return;
+    lastKey = key;
+    updateTimeUI();
+    drawOverlay();
+  }
+  requestAnimationFrame(tick);
+
+  // ================== Clavier ==================
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') {
+      if (e.key === 'Escape') e.target.blur();
+      return;
+    }
+    if (!state.meta) return;
+    const k = e.key;
+    if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'z') {
+      const c = getSelected();
+      if (c && c.shapes.length) { c.shapes.pop(); save(); renderAll(); }
+      e.preventDefault();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (k === ' ') { togglePlay(); e.preventDefault(); }
+    else if (k === 'ArrowLeft') { stepFrames(e.shiftKey ? -state.fps : -1); e.preventDefault(); }
+    else if (k === 'ArrowRight') { stepFrames(e.shiftKey ? state.fps : 1); e.preventDefault(); }
+    else if (k === 'Home') actions.start();
+    else if (k === 'End') actions.end();
+    else if (k === 'c' || k === 'C') { createComment(); focusText(); e.preventDefault(); }
+    else if (k === 'i' || k === 'I') setLoopPoint('in');
+    else if (k === 'o' || k === 'O') setLoopPoint('out');
+    else if (k === 'l' || k === 'L') toggleLoop();
+    else if (k === 'm' || k === 'M') toggleMute();
+    else if (k === 'Escape') { state.selectedId = null; renderAll(); }
+    else if (/^[1-7]$/.test(k)) setTool(TOOL_KEYS[Number(k) - 1]);
+  });
+
+  // ================== Projet (.json) ==================
+  let pendingProject = null;
+  function projectData() {
+    return {
+      app: 'studio-retouches',
+      version: 1,
+      video: state.meta,
+      fps: state.fps,
+      comments: sorted(),
+    };
+  }
+  function baseName() { return (state.meta ? state.meta.name : 'video').replace(/\.[^.]+$/, ''); }
+  function download(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  $('#btnSaveProject').addEventListener('click', () => {
+    download(new Blob([JSON.stringify(projectData(), null, 2)], { type: 'application/json' }), `${baseName()}-retouches.json`);
+  });
+  $('#btnOpenProject').addEventListener('click', () => $('#projectInput').click());
+  $('#projectInput').addEventListener('change', (e) => { loadProjectFile(e.target.files[0]); e.target.value = ''; });
+  async function loadProjectFile(file) {
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.app !== 'studio-retouches' || !Array.isArray(data.comments)) throw new Error('format');
+      if (!state.meta) {
+        pendingProject = data;
+        toast(`Projet chargé. Ouvre maintenant la vidéo « ${data.video ? data.video.name : ''} ».`, 4000);
+        return;
+      }
+      applyProject(data);
+    } catch (err) {
+      toast('Ce fichier n\'est pas un projet Studio Retouches valide.');
+    }
+  }
+  function applyProject(data) {
+    if (data.video && state.meta && data.video.name !== state.meta.name) {
+      toast(`Attention : ce projet a été fait pour « ${data.video.name} ».`, 4000);
+    }
+    state.comments = data.comments;
+    state.selectedId = null;
+    if (data.fps) setFps(data.fps, false);
+    save(); renderAll();
+    toast(`${data.comments.length} retouche(s) chargée(s).`);
+  }
+
+  // ================== Fiche de retouches ==================
+  function zoneName(x, y) {
+    const v = y < 1 / 3 ? 'haut' : y < 2 / 3 ? 'milieu' : 'bas';
+    const h = x < 1 / 3 ? 'gauche' : x < 2 / 3 ? 'centre' : 'droite';
+    if (v === 'milieu' && h === 'centre') return 'centre de l\'image';
+    if (v === 'milieu') return `milieu ${h}`;
+    return `${v} ${h === 'centre' ? 'centre' : h}`;
+  }
+  function describeShape(s) {
+    const W = state.meta.width, H = state.meta.height;
+    const px = (p) => `(${Math.round(p[0] * W)}, ${Math.round(p[1] * H)})`;
+    const col = colorName(s.color);
+    const box = (pts) => {
+      const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      return {
+        txt: `x ${Math.round(x0 * W)} → ${Math.round(x1 * W)}, y ${Math.round(y0 * H)} → ${Math.round(y1 * H)} px`,
+        zone: zoneName((x0 + x1) / 2, (y0 + y1) / 2),
+      };
+    };
+    switch (s.type) {
+      case 'arrow': {
+        const a = s.points[0], b = s.points[s.points.length - 1];
+        return `Flèche ${col} de ${px(a)} [${zoneName(...a)}] vers ${px(b)} [${zoneName(...b)}]`;
+      }
+      case 'rect': { const bx = box(s.points); return `Rectangle ${col} entourant la zone ${bx.txt} [${bx.zone}]`; }
+      case 'ellipse': { const bx = box(s.points); return `Cercle ${col} entourant la zone ${bx.txt} [${bx.zone}]`; }
+      case 'free': {
+        const bx = box(s.points);
+        return `Tracé à main levée ${col} (trajectoire/forme) de ${px(s.points[0])} à ${px(s.points[s.points.length - 1])}, dans la zone ${bx.txt} [${bx.zone}]`;
+      }
+      case 'text': return `Texte ${col} « ${s.text} » écrit en ${px(s.points[0])} [${zoneName(...s.points[0])}]`;
+      case 'pin': return `Point ${col} placé en ${px(s.points[0])} [${zoneName(...s.points[0])}]`;
+    }
+    return '';
+  }
+  function imageName(i, suffix = '') { return `retouche-${String(i + 1).padStart(2, '0')}${suffix}.png`; }
+
+  function buildMarkdown(withImages) {
+    const m = state.meta;
+    const items = sorted();
+    const lines = [];
+    lines.push(`# Fiche de retouches — ${m.name}`);
+    lines.push('');
+    lines.push(`- Vidéo : ${m.name} · ${m.width}×${m.height} px · ${fmtSec(m.duration)} · ${state.fps} images/s (${totalFrames()} images, numérotées de 0 à ${totalFrames() - 1})`);
+    lines.push(`- Retouches : ${items.length} (${items.filter((c) => !c.done).length} à faire)`);
+    lines.push(`- Repère des coordonnées : pixels de la vidéo d'origine, (0, 0) = coin haut-gauche.`);
+    lines.push('');
+    items.forEach((c, i) => {
+      const { s, e } = commentFrames(c);
+      const when = c.tEnd != null
+        ? `de ${fmtSec(s / state.fps)} à ${fmtSec(e / state.fps)} (images ${s} → ${e}, durée ${fmtSec((e - s) / state.fps)})`
+        : `à ${fmtSec(s / state.fps)} (image ${s})`;
+      lines.push(`## Retouche ${i + 1} — ${when}${c.done ? ' — ✅ faite' : ''}`);
+      lines.push('');
+      lines.push(`- Catégorie : ${c.category} · Priorité : ${c.priority.toLowerCase()}`);
+      lines.push(`- Demande : ${c.text.trim() ? c.text.trim().replace(/\n+/g, ' / ') : '(pas de description, voir les dessins)'}`);
+      if (c.shapes.length) {
+        lines.push('- Annotations sur l\'image :');
+        c.shapes.forEach((sh) => lines.push(`  - ${describeShape(sh)}`));
+      }
+      if (withImages) {
+        lines.push(`- Capture annotée : images/${imageName(i)}${c.tEnd != null ? ` (et fin de plage : images/${imageName(i, '-fin')})` : ''}`);
+      }
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
+  $('#btnCopy').addEventListener('click', async () => {
+    if (!state.comments.length) { toast('Aucune retouche à copier.'); return; }
+    const md = buildMarkdown(false);
+    try {
+      await navigator.clipboard.writeText(md);
+      toast('Fiche copiée : colle-la dans la conversation avec Claude.');
+    } catch (e) {
+      download(new Blob([md], { type: 'text/markdown' }), `${baseName()}-fiche-retouches.md`);
+      toast('Copie impossible ici : la fiche a été téléchargée en .md.');
+    }
+  });
+
+  // Capture d'une image de la vidéo + dessins d'une retouche, en pleine résolution
+  function waitSeek(t) {
+    return new Promise((res) => {
+      const done = () => {
+        video.removeEventListener('seeked', done);
+        if ('requestVideoFrameCallback' in video) {
+          let fired = false;
+          video.requestVideoFrameCallback(() => { fired = true; res(); });
+          setTimeout(() => { if (!fired) res(); }, 250);
+        } else requestAnimationFrame(() => requestAnimationFrame(res));
+      };
+      video.addEventListener('seeked', done);
+      video.currentTime = t;
+    });
+  }
+  async function captureComment(c, n, t, labelSuffix) {
+    await waitSeek(t);
+    const W = state.meta.width, H = state.meta.height;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(video, 0, 0, W, H);
+    drawComment(ctx, c, W, H, 1);
+    const fs = Math.max(14, H * 0.03);
+    const label = `Retouche ${n} · ${fmtSec(snap(t))} · image ${frameOf(t)}${labelSuffix}`;
+    ctx.font = `700 ${fs}px system-ui, sans-serif`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0,0,0,.75)';
+    ctx.fillRect(0, 0, tw + fs * 1.4, fs * 2);
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, fs * 0.7, fs);
+    const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  $('#btnExport').addEventListener('click', async () => {
+    if (!state.comments.length) { toast('Aucune retouche à exporter.'); return; }
+    const busy = document.createElement('div');
+    busy.className = 'busy';
+    busy.textContent = 'Préparation des captures…';
+    document.body.appendChild(busy);
+    const wasTime = video.currentTime;
+    video.pause();
+    try {
+      const enc = new TextEncoder();
+      const files = [];
+      const items = sorted();
+      for (let i = 0; i < items.length; i++) {
+        const c = items[i];
+        busy.textContent = `Capture ${i + 1} / ${items.length}…`;
+        files.push({ name: `images/${imageName(i)}`, data: await captureComment(c, i + 1, c.tStart, c.tEnd != null ? ' (début)' : '') });
+        if (c.tEnd != null) files.push({ name: `images/${imageName(i, '-fin')}`, data: await captureComment(c, i + 1, c.tEnd, ' (fin)') });
+      }
+      files.unshift({ name: 'fiche-retouches.md', data: enc.encode(buildMarkdown(true)) });
+      files.push({ name: 'projet-retouches.json', data: enc.encode(JSON.stringify(projectData(), null, 2)) });
+      download(makeZip(files), `${baseName()}-retouches.zip`);
+      toast('Fiche exportée : envoie le .zip (ou le texte + les images) à Claude.', 4000);
+    } catch (err) {
+      console.error(err);
+      toast('L\'export a échoué : ' + err.message, 5000);
+    } finally {
+      busy.remove();
+      await waitSeek(wasTime);
+      rev++;
+    }
+  });
+
+  // ================== Création de ZIP (sans compression, sans dépendance) ==================
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(buf) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function makeZip(files) {
+    const enc = new TextEncoder();
+    const d = new Date();
+    const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const parts = [], central = [];
+    let offset = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name);
+      const crc = crc32(f.data);
+      const size = f.data.length;
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+      lh.setUint16(8, 0, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+      lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+      parts.push(new Uint8Array(lh.buffer), name, f.data);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+      ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true); ch.setUint16(12, dosTime, true);
+      ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true); ch.setUint32(20, size, true);
+      ch.setUint32(24, size, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+      central.push(new Uint8Array(ch.buffer), name);
+      offset += 30 + name.length + size;
+    }
+    const cdSize = central.reduce((a, b) => a + b.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+  }
+
+  // ================== Démarrage ==================
+  setTool('arrow');
+  renderAll();
+})();
+</script>
+</body>
+</html>
